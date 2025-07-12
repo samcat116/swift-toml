@@ -1,0 +1,8 @@
+# Simple test case for dotted keys
+
+# Basic dotted key
+name.first = "Tom"
+
+# Product without spaces
+product.name = "Hammer"
+product.sku = 738594937

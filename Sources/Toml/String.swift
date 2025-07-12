@@ -19,9 +19,17 @@ import Foundation
 func getUnicodeChar(unicode: String) throws -> String {
     // check if it's a valid character
     let code = Int(strtoul(unicode, nil, 16))
-
-    if code < 0x0 || (code > 0xD7FF && code < 0xE000) || code > 0x10FFFF {
-        throw TomlError.InvalidUnicodeCharacter(code)
+    
+    // For 2-digit hex escapes (\xHH), we only validate basic ASCII range
+    if unicode.count == 2 {
+        if code < 0x0 || code > 0xFF {
+            throw TomlError.InvalidUnicodeCharacter(code)
+        }
+    } else {
+        // For unicode escapes, use the original validation
+        if code < 0x0 || (code > 0xD7FF && code < 0xE000) || code > 0x10FFFF {
+            throw TomlError.InvalidUnicodeCharacter(code)
+        }
     }
 
     return String(describing: UnicodeScalar(code)!)
@@ -53,10 +61,15 @@ func checkEscape(char: Character, escape: inout Bool) throws -> (String, Int) {
         case "r":
             s = "\r"
             escape = false
+        case "e":
+            s = "\u{001B}"  // ESC character (ASCII 27)
+            escape = false
         case "u":
             unicodeSize = 4
         case "U":
             unicodeSize = 8
+        case "x":
+            unicodeSize = 2  // 2-digit hexadecimal escape
         default:
             throw TomlError.InvalidEscapeSequence("\\" + String(describing: char))
     }
@@ -95,11 +108,16 @@ extension String {
             if escape {
                 if unicodeSize == 0 {
                     s += try getUnicodeChar(unicode: unicode)
-                    s += String(describing: char)
-
                     escape = false
                     unicodeSize = -1
                     unicode = ""
+                    // Don't add the current char - we just finished processing a unicode sequence
+                    // Now process this char normally
+                    if char == "\\" {
+                        escape = true
+                    } else {
+                        s += String(describing: char)
+                    }
                 } else if unicodeSize > 0 {
                     unicodeSize -= 1
                     unicode += String(describing: char)
@@ -143,7 +161,7 @@ func quoted(_ value: String) -> String {
 */
 func escape(string: String) -> String {
     var result: String
-    let escapeMap = ["\n": "\\n", "\r": "\\r", "\t": "\\t", "\"": "\\\""]
+    let escapeMap = ["\n": "\\n", "\r": "\\r", "\t": "\\t", "\"": "\\\"", "\u{001B}": "\\e"]
 
     // must escape \ first because it is the escape character
     result = string.replacingOccurrences(of: "\\", with: "\\\\")

@@ -1,0 +1,16 @@
+# Special float values (TOML 0.5+)
+
+# Positive infinity
+sf1 = inf
+sf2 = +inf
+
+# Negative infinity  
+sf3 = -inf
+
+# Not a number
+sf4 = nan
+sf5 = +nan
+sf6 = -nan
+
+# Arrays with special values
+special_array = [inf, -inf, nan]

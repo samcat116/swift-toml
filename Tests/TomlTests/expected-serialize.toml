@@ -1,7 +1,7 @@
 array-of-arrays = [[1, 2], ["a", "b"]]
 date = 2016-08-24T12:00:32.000000Z
 double = 3.14
-double-array = [1.1000000000000001, 2.2000000000000002, 3.2999999999999998]
+double-array = [1.1, 2.2, 3.3]
 int = 32
 int-array = [1, 2, 3]
 literal = "hello"

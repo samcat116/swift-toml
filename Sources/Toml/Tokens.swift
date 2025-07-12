@@ -23,6 +23,9 @@ enum Token: Hashable {
     case DoubleNumber(Double)
     case Boolean(Bool)
     case DateTime(Date)
+    case LocalDate(String)      // Local date: 1979-05-27
+    case LocalTime(String)      // Local time: 07:32:00
+    case LocalDateTime(String)  // Local date-time: 1979-05-27T07:32:00
     case ArrayBegin
     case ArrayEnd
     case TableArrayBegin
@@ -52,26 +55,32 @@ enum Token: Hashable {
             return 4
         case .DateTime:
             return 5
-        case .ArrayBegin:
+        case .LocalDate:
             return 6
-        case .ArrayEnd:
+        case .LocalTime:
             return 7
-        case .TableArrayBegin:
+        case .LocalDateTime:
             return 8
-        case .TableArrayEnd:
+        case .ArrayBegin:
             return 9
-        case .InlineTableBegin:
+        case .ArrayEnd:
             return 10
-        case .InlineTableEnd:
+        case .TableArrayBegin:
             return 11
-        case .TableBegin:
+        case .TableArrayEnd:
             return 12
-        case .TableSep:
+        case .InlineTableBegin:
             return 13
-        case .TableEnd:
+        case .InlineTableEnd:
             return 14
-        case .Comment:
+        case .TableBegin:
             return 15
+        case .TableSep:
+            return 16
+        case .TableEnd:
+            return 17
+        case .Comment:
+            return 18
         }
     }
 
@@ -88,6 +97,12 @@ enum Token: Hashable {
         case .Boolean(let val):
             return val
         case .DateTime(let val):
+            return val
+        case .LocalDate(let val):
+            return val
+        case .LocalTime(let val):
+            return val
+        case .LocalDateTime(let val):
             return val
         case .Comment(let val):
             return val

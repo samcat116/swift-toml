@@ -1,0 +1,19 @@
+# Test file for new integer formats in TOML 0.5+
+
+# Hexadecimal
+hex1 = 0xDEADBEEF
+hex2 = 0xdeadbeef
+
+# Octal
+oct1 = 0o01234567
+oct2 = 0o755
+
+# Binary
+bin1 = 0b11010110
+bin2 = 0b00000000
+
+# Decimal (existing format)
+dec1 = 99
+dec2 = +42
+dec3 = -17
+dec4 = 0

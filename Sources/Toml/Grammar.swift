@@ -114,8 +114,11 @@ class Grammar {
 
     private func dateValueEvaluators() -> [Evaluator] {
         let dateTimeStr = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+        let dateStr = "\\d{4}-\\d{2}-\\d{2}"
+        let timeStr = "\\d{2}:\\d{2}:\\d{2}"
+        
         return [
-            // Dates, RFC 3339 w/ fractional seconds and time offset
+            // Offset Date-Time: RFC 3339 w/ fractional seconds and time offset
             Evaluator(regex: dateTimeStr + ".\\d+(Z|z|[-\\+]\\d{2}:\\d{2})", generator: {
                 (r: String) in
                     if let date = Date(rfc3339String: r) {
@@ -124,7 +127,7 @@ class Grammar {
                         throw TomlError.InvalidDateFormat("####-##-##T##:##:##.###+/-##:## (\(r))")
                     }
             }, pop: true),
-            // RFC 3339 w/o fractional seconds and time offset
+            // Offset Date-Time: RFC 3339 w/o fractional seconds and time offset
             Evaluator(regex: dateTimeStr + "(Z|z|[-\\+]\\d{2}:\\d{2})", generator: {
                 (r: String) in
                     if let date = Date(rfc3339String: r, fractionalSeconds: false) {
@@ -133,29 +136,25 @@ class Grammar {
                         throw TomlError.InvalidDateFormat("####-##-##T##:##:##+/-##:## (\(r))")
                     }
             }, pop: true),
-            // Dates, RFC 3339 w/ fractional seconds and w/o time offset
+            // Local Date-Time: w/ fractional seconds, no timezone
             Evaluator(regex: dateTimeStr + ".\\d+", generator: { (r: String) in
-                if let date = Date(rfc3339String: r, localTime: true) {
-                    return Token.DateTime(date)
-                } else {
-                    throw TomlError.InvalidDateFormat("####-##-##T##:##:##.### (\(r))")
-                }
+                return Token.LocalDateTime(r)
             }, pop: true),
-            // Dates, RFC 3339 w/o fractional seconds and w/o time offset
+            // Local Date-Time: w/o fractional seconds, no timezone
             Evaluator(regex: dateTimeStr, generator: { (r: String) in
-                if let date = Date(rfc3339String: r, fractionalSeconds: false, localTime: true) {
-                    return Token.DateTime(date)
-                } else {
-                    throw TomlError.InvalidDateFormat("####-##-##T##:##:## (\(r))")
-                }
+                return Token.LocalDateTime(r)
             }, pop: true),
-            // Date only
-            Evaluator(regex: "\\d{4}-\\d{2}-\\d{2}", generator: { (r: String) in
-                if let date = Date(rfc3339String: r + "T00:00:00.0", localTime: true) {
-                    return Token.DateTime(date)
-                } else {
-                    throw TomlError.InvalidDateFormat("####-##-## (\(r))")
-                }
+            // Local Time: w/ fractional seconds
+            Evaluator(regex: timeStr + ".\\d+", generator: { (r: String) in
+                return Token.LocalTime(r)
+            }, pop: true),
+            // Local Time: w/o fractional seconds
+            Evaluator(regex: timeStr, generator: { (r: String) in
+                return Token.LocalTime(r)
+            }, pop: true),
+            // Local Date: date only
+            Evaluator(regex: dateStr, generator: { (r: String) in
+                return Token.LocalDate(r)
             }, pop: true)
         ]
     }
@@ -184,21 +183,65 @@ class Grammar {
     }
 
     private func doubleValueEvaluators() -> [Evaluator] {
-        let generator: TokenGenerator = { (val: String) in .DoubleNumber(Double(val)!) }
+        let generator: TokenGenerator = { (val: String) in 
+            let cleaned = val.replacingOccurrences(of: "_", with: "")
+            if let value = Double(cleaned) {
+                return .DoubleNumber(value)
+            } else {
+                throw TomlError.InvalidNumberFormat("Invalid float: \(val)")
+            }
+        }
         return [
-            // Double values with exponent
-            Evaluator(regex: "[-\\+]?[0-9]+(\\.[0-9]+)?[eE][-\\+]?[0-9]+",
+            // Double values with exponent (with optional underscores)
+            Evaluator(regex: "[-\\+]?[0-9][0-9_]*(\\.[0-9_]+)?[eE][-\\+]?[0-9_]+",
                 generator: generator, pop:true),
-            // Double values no exponent
-            Evaluator(regex: "[-\\+]?[0-9]+\\.[0-9]+", generator: generator, pop: true),
+            // Double values no exponent (with optional underscores)
+            Evaluator(regex: "[-\\+]?[0-9][0-9_]*\\.[0-9_]+", generator: generator, pop: true),
         ]
     }
 
     private func intValueEvaluators() -> [Evaluator] {
         return [
-            // Integer values
-            Evaluator(regex: "[-\\+]?[0-9]+",
-                generator: { (r: String) in .IntegerNumber(Int(r)!) }, pop: true),
+            // Hexadecimal integer values (with optional underscores)
+            Evaluator(regex: "0x[0-9A-Fa-f_]+",
+                generator: { (r: String) in 
+                    let hex = String(r.dropFirst(2)).replacingOccurrences(of: "_", with: "")
+                    if let value = Int(hex, radix: 16) {
+                        return .IntegerNumber(value)
+                    } else {
+                        throw TomlError.InvalidNumberFormat("Invalid hexadecimal: \(r)")
+                    }
+                }, pop: true),
+            // Octal integer values (with optional underscores)
+            Evaluator(regex: "0o[0-7_]+",
+                generator: { (r: String) in 
+                    let octal = String(r.dropFirst(2)).replacingOccurrences(of: "_", with: "")
+                    if let value = Int(octal, radix: 8) {
+                        return .IntegerNumber(value)
+                    } else {
+                        throw TomlError.InvalidNumberFormat("Invalid octal: \(r)")
+                    }
+                }, pop: true),
+            // Binary integer values (with optional underscores)
+            Evaluator(regex: "0b[01_]+",
+                generator: { (r: String) in 
+                    let binary = String(r.dropFirst(2)).replacingOccurrences(of: "_", with: "")
+                    if let value = Int(binary, radix: 2) {
+                        return .IntegerNumber(value)
+                    } else {
+                        throw TomlError.InvalidNumberFormat("Invalid binary: \(r)")
+                    }
+                }, pop: true),
+            // Decimal integer values (with optional underscores)
+            Evaluator(regex: "[-\\+]?[0-9][0-9_]*",
+                generator: { (r: String) in 
+                    let cleaned = r.replacingOccurrences(of: "_", with: "")
+                    if let value = Int(cleaned) {
+                        return .IntegerNumber(value)
+                    } else {
+                        throw TomlError.InvalidNumberFormat("Invalid integer: \(r)")
+                    }
+                }, pop: true),
         ]
     }
 
@@ -207,6 +250,17 @@ class Grammar {
             // Boolean values
             Evaluator(regex: "true", generator: { (r: String) in .Boolean(true) }, pop: true),
             Evaluator(regex: "false", generator: { (r: String) in .Boolean(false) }, pop: true),
+        ]
+    }
+    
+    private func specialFloatValueEvaluators() -> [Evaluator] {
+        return [
+            // Positive infinity
+            Evaluator(regex: "\\+?inf", generator: { _ in .DoubleNumber(Double.infinity) }, pop: true),
+            // Negative infinity
+            Evaluator(regex: "-inf", generator: { _ in .DoubleNumber(-Double.infinity) }, pop: true),
+            // Not a number (with optional sign)
+            Evaluator(regex: "[+-]?nan", generator: { _ in .DoubleNumber(Double.nan) }, pop: true),
         ]
     }
 
@@ -237,7 +291,7 @@ class Grammar {
 
     private func valueEvaluators() -> [Evaluator] {
         let typeEvaluators = stringValueEvaluators() + dateValueEvaluators() +
-            doubleValueEvaluators() + intValueEvaluators() + booleanValueEvaluators()
+            specialFloatValueEvaluators() + doubleValueEvaluators() + intValueEvaluators() + booleanValueEvaluators()
 
         return whitespaceValueEvaluators() + arrayValueEvaluators() +
             inlineTableValueEvaluators() + typeEvaluators
@@ -260,15 +314,15 @@ class Grammar {
 
     private func stringKeyEvaluator() -> [Evaluator] {
         let validUnicodeChars = "\\u0020-\\u0021\\u0023-\\u005B\\u005D-\\uFFFF"
+        let bareKeyPattern = "[a-zA-Z0-9_-]+"
+        let quotedKeyPattern = "\"([" + validUnicodeChars + "]|\\\\\"|\\\\)+\""
+        let literalKeyPattern = "'([\\u0020-\\u0026\\u0028-\\uFFFF])+'"
+        
+        // Simple dotted key pattern: only bare keys separated by dots (no quoted parts for now)
+        let simpleDottedPattern = bareKeyPattern + "([ \t]*\\.[ \t]*" + bareKeyPattern + ")+[ \t]*="
+        
         return [
-            // bare key
-            Evaluator(regex: "[a-zA-Z0-9_-]+[ \t]*=",
-                generator: {
-                    (r: String) in
-                        .Key(String(r[..<r.index(r.endIndex, offsetBy:-1)]).trim())
-                },
-                push: ["value"]),
-            // string key
+            // string key (quoted keys take precedence)
             Evaluator(regex: "\"([" + validUnicodeChars + "]|\\\\\"|\\\\)+\"[ \t]*=",
                 generator: {
                     (r: String) in
@@ -278,6 +332,28 @@ class Grammar {
             // literal string key
             Evaluator(regex: "'([\\u0020-\\u0026\\u0028-\\uFFFF])+'[ \t]*=",
                 generator: { (r: String) in .Key(trimStringIdentifier(r, "'")) },
+                push: ["value"]),
+            // dotted key (must come after quoted keys but before simple keys)
+            Evaluator(regex: simpleDottedPattern,
+                generator: {
+                    (r: String) in
+                        // Remove the trailing '=' and trim
+                        let keyPart = String(r[..<r.index(r.endIndex, offsetBy:-1)]).trim()
+                        // Only treat as dotted if it actually contains dots outside of quotes
+                        if keyPart.contains(".") && !keyPart.hasPrefix("\"") && !keyPart.hasPrefix("'") {
+                            return .Key(keyPart)
+                        } else {
+                            // This shouldn't match, but fallback to regular processing
+                            return .Key(keyPart)
+                        }
+                },
+                push: ["value"]),
+            // bare key
+            Evaluator(regex: "[a-zA-Z0-9_-]+[ \t]*=",
+                generator: {
+                    (r: String) in
+                        .Key(String(r[..<r.index(r.endIndex, offsetBy:-1)]).trim())
+                },
                 push: ["value"]),
         ]
     }
