@@ -16,18 +16,29 @@
 
 import Foundation
 
-var expressions = [String: NSRegularExpression]()
+private let expressionsCache = ExpressionCache()
+
+private final class ExpressionCache: @unchecked Sendable {
+    private var expressions = [String: NSRegularExpression]()
+    private let lock = NSLock()
+    
+    func expression(for pattern: String, options: NSRegularExpression.Options) -> NSRegularExpression {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        if let cachedRegexp = expressions[pattern] {
+            return cachedRegexp
+        } else {
+            let expression = try! NSRegularExpression(pattern: "^\(pattern)", options: options)
+            expressions[pattern] = expression
+            return expression
+        }
+    }
+}
 
 extension String {
     func match(_ regex: String, options: NSRegularExpression.Options = []) -> String? {
-        let expression: NSRegularExpression
-        
-        if let cachedRegexp = expressions[regex] {
-            expression = cachedRegexp
-        } else {
-            expression = try! NSRegularExpression(pattern: "^\(regex)", options: options)
-            expressions[regex] = expression
-        }
+        let expression = expressionsCache.expression(for: regex, options: options)
         
         let range = expression.rangeOfFirstMatch(in: self, options: [],
             range: NSMakeRange(0, self.count))

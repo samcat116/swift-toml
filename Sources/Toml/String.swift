@@ -17,9 +17,16 @@
 import Foundation
 
 func getUnicodeChar(unicode: String) throws -> String {
+    // First validate that all characters are valid hex digits
+    let hexCharSet = CharacterSet(charactersIn: "0123456789ABCDEFabcdef")
+    if !unicode.unicodeScalars.allSatisfy({ hexCharSet.contains($0) }) {
+        throw TomlError.InvalidEscapeSequence("\\u" + unicode)
+    }
+    
     // check if it's a valid character
     let code = Int(strtoul(unicode, nil, 16))
-
+    
+    // For unicode escapes, validate the code point
     if code < 0x0 || (code > 0xD7FF && code < 0xE000) || code > 0x10FFFF {
         throw TomlError.InvalidUnicodeCharacter(code)
     }
@@ -52,6 +59,9 @@ func checkEscape(char: Character, escape: inout Bool) throws -> (String, Int) {
             escape = false
         case "r":
             s = "\r"
+            escape = false
+        case "e":
+            s = "\u{001B}"  // ESC character (ASCII 27)
             escape = false
         case "u":
             unicodeSize = 4
@@ -95,11 +105,16 @@ extension String {
             if escape {
                 if unicodeSize == 0 {
                     s += try getUnicodeChar(unicode: unicode)
-                    s += String(describing: char)
-
                     escape = false
                     unicodeSize = -1
                     unicode = ""
+                    // Don't add the current char - we just finished processing a unicode sequence
+                    // Now process this char normally
+                    if char == "\\" {
+                        escape = true
+                    } else {
+                        s += String(describing: char)
+                    }
                 } else if unicodeSize > 0 {
                     unicodeSize -= 1
                     unicode += String(describing: char)
@@ -143,7 +158,7 @@ func quoted(_ value: String) -> String {
 */
 func escape(string: String) -> String {
     var result: String
-    let escapeMap = ["\n": "\\n", "\r": "\\r", "\t": "\\t", "\"": "\\\""]
+    let escapeMap = ["\n": "\\n", "\r": "\\r", "\t": "\\t", "\"": "\\\"", "\u{001B}": "\\e"]
 
     // must escape \ first because it is the escape character
     result = string.replacingOccurrences(of: "\\", with: "\\\\")

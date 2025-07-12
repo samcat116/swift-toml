@@ -1,0 +1,19 @@
+# New escape sequences (TOML 1.0)
+
+# Escape character \e (ASCII 27)
+esc1 = "Press \e[1mCtrl+C\e[0m to exit"
+esc2 = "\e"
+
+# Hexadecimal escape sequences \xHH
+hex1 = "\x41\x42\x43"        # ABC
+hex2 = "\x48\x65\x6C\x6C\x6F" # Hello
+hex3 = "\x00\x0A\x0D"       # null, newline, carriage return
+hex4 = "\xFF"                # 255
+
+# Mixed with existing escapes
+mixed1 = "Line 1\nLine 2\tTabbed\e[31mRed\e[0m"
+mixed2 = "Quote: \" Backslash: \\ Hex: \x41"
+
+# In arrays
+escape_array = ["\e", "\x41", "\n"]
+backslash_test = "\\"

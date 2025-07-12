@@ -1,0 +1,23 @@
+# Simple TOML v1.0 features test
+
+# Integer formats
+decimal = 123_456
+hex = 0xDEAD
+octal = 0o755
+binary = 0b1010
+
+# Float formats
+float_val = 3.14
+inf_val = inf
+nan_val = nan
+
+# Dotted keys
+site.name = "Test"
+site.version = "1.0"
+
+# Date/time
+local_date = 1979-05-27
+local_time = 07:32:00
+
+# Escape sequences
+escaped = "Hello\e World\x41"

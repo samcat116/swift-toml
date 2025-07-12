@@ -7,7 +7,7 @@ SwiftToml is a TOML parser written in the swift language.  TOML is an intuitive
 configuration file format that is designed to be easy for humans to read and
 computers to parse.
 
-SwiftToml currently parses files that conform to version 0.4.0 of the TOML spec.
+SwiftToml currently parses files that conform to **version 1.0.0** of the TOML spec.
 
 For full details of writing TOML files see the [TOML documentation](https://github.com/toml-lang/toml).
 
@@ -69,6 +69,15 @@ for (tablePath, table) in toml.tables() { ... }
 
 // iterate over all tables under table1
 for (tablePath, table) in toml.tables("table1") { ... }
+
+// access local date/time values (TOML v1.0)
+let localDate = toml.localDate("birthday")      // "1979-05-27"
+let localTime = toml.localTime("start_time")    // "07:32:00"
+let localDateTime = toml.localDateTime("created") // "1979-05-27T07:32:00"
+
+// dotted keys access nested values directly
+let config = toml.string("database", "host")    // equivalent to [database] host = "..."
+let port = toml.int("server", "port")           // equivalent to [server] port = 8080
 ```
 
 ## Installation
@@ -81,9 +90,19 @@ Add the project to  to your Package.swift file as a dependency:
 
 ## Compatibility
 
-SwiftToml is compatible with Swift 4.0.3 and TOML 0.4.0.
+SwiftToml is compatible with Swift 6.0+ and TOML 1.0.0.
 
-It has been tested with Swift 4.0.3 on Mac OS X and Ubuntu 16.04. 
+It has been tested with Swift 6.0 on macOS and supports all major TOML v1.0 features including:
+
+### TOML v1.0 Features
+
+- **Integer formats**: Hexadecimal (`0xDEAD`), octal (`0o755`), binary (`0b1010`)
+- **Number separators**: Underscores in numbers (`1_000_000`, `3.141_592`)
+- **Special float values**: Infinity (`inf`, `-inf`) and NaN (`nan`)
+- **Date and time types**: Local dates (`1979-05-27`), local times (`07:32:00`), local date-times (`1979-05-27T07:32:00`)
+- **Dotted keys**: Nested key syntax (`site.owner.name = "value"`)
+- **Enhanced escape sequences**: ESC character (`\e`) and hex escapes (`\x41`)
+- **Offset date-times**: RFC 3339 compliant timestamps with timezone support 
 
 ## Tests
 

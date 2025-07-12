@@ -1,0 +1,5 @@
+# Test dotted keys with spaces
+
+# With spaces around dots
+a . b . c = 1
+d .e. f = 2

@@ -39,6 +39,93 @@ class Parser {
         let tokens = try lexer.tokenize()
         try parse(tokens: tokens)
     }
+    
+    /**
+        Parse a dotted key into its components, handling quoted sections
+        
+        - Parameter key: The dotted key string (e.g., "a.b.c" or "a.'b.c'.d")
+        - Returns: Array of key components
+    */
+    private func parseDottedKey(_ key: String) -> [String] {
+        // First check if this could be a dotted key with spaces (e.g., "a . b . c")
+        // These are valid bare dotted keys in TOML
+        let keyWithoutSpacesAroundDots = key.replacingOccurrences(of: " . ", with: ".")
+            .replacingOccurrences(of: " .", with: ".")
+            .replacingOccurrences(of: ". ", with: ".")
+        
+        // Check if after removing spaces around dots, we have a valid bare key pattern
+        let bareKeyComponentPattern = "^[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)*$"
+        if let _ = keyWithoutSpacesAroundDots.range(of: bareKeyComponentPattern, options: .regularExpression) {
+            // This is a dotted key (possibly with spaces around dots)
+            // Continue with normal parsing
+        } else {
+            // This key contains special characters that would require quoting,
+            // so it was likely a quoted key - return as single component
+            return [key]
+        }
+        
+        var components: [String] = []
+        var current = ""
+        var inQuotes = false
+        var quoteChar: Character? = nil
+        var escaped = false
+        var i = key.startIndex
+        
+        while i < key.endIndex {
+            let char = key[i]
+            
+            if escaped {
+                current.append(char)
+                escaped = false
+            } else if char == "\\" && inQuotes {
+                current.append(char)
+                escaped = true
+            } else if (char == "\"" || char == "'") && !inQuotes {
+                // Starting a quoted section
+                inQuotes = true
+                quoteChar = char
+            } else if char == quoteChar && inQuotes {
+                // Ending a quoted section
+                inQuotes = false
+                quoteChar = nil
+            } else if char == "." && !inQuotes {
+                // Found a dot separator outside quotes
+                let trimmed = current.trim()
+                if !trimmed.isEmpty {
+                    // Remove quotes if the entire component is quoted
+                    if (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) ||
+                       (trimmed.hasPrefix("'") && trimmed.hasSuffix("'")) {
+                        let start = trimmed.index(after: trimmed.startIndex)
+                        let end = trimmed.index(before: trimmed.endIndex)
+                        components.append(String(trimmed[start..<end]))
+                    } else {
+                        components.append(trimmed)
+                    }
+                }
+                current = ""
+            } else {
+                current.append(char)
+            }
+            
+            i = key.index(after: i)
+        }
+        
+        // Don't forget the last component
+        let trimmed = current.trim()
+        if !trimmed.isEmpty {
+            // Remove quotes if the entire component is quoted
+            if (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) ||
+               (trimmed.hasPrefix("'") && trimmed.hasSuffix("'")) {
+                let start = trimmed.index(after: trimmed.startIndex)
+                let end = trimmed.index(before: trimmed.endIndex)
+                components.append(String(trimmed[start..<end]))
+            } else {
+                components.append(trimmed)
+            }
+        }
+        
+        return components.isEmpty ? [key] : components
+    }
 
     /**
         Parse a TOML token stream construct a dictionary.
@@ -53,6 +140,9 @@ class Parser {
             .DoubleNumber(1.0): setValue,
             .Boolean(true): setValue,
             .DateTime(Date()): setValue,
+            .LocalDate("1979-05-27"): setValue,
+            .LocalTime("07:32:00"): setValue,
+            .LocalDateTime("1979-05-27T07:32:00"): setValue,
             .TableBegin: setTable,
             .ArrayBegin: setArray,
             .TableArrayBegin: setTableArray,
@@ -65,7 +155,34 @@ class Parser {
         while !myTokens.isEmpty {
             let token = myTokens.remove(at: 0)
             if case .Key(let val) = token {
-                currentKey = val
+                // Handle dotted keys by parsing them into components
+                let keyComponents = parseDottedKey(val)
+                if keyComponents.count > 1 {
+                    // For dotted keys, we need to set up the key path
+                    currentKey = keyComponents.last!
+                    // Create nested tables if needed
+                    var currentPath = keyPath  // Start with current table context
+                    for i in 0..<(keyComponents.count - 1) {
+                        currentPath.append(keyComponents[i])
+                        if !toml.hasTable(currentPath) {
+                            toml.setTable(key: currentPath)
+                        }
+                    }
+                    // Store the previous keyPath to restore later
+                    let savedKeyPath = keyPath
+                    keyPath = currentPath
+                    
+                    // Process the next token (the value)
+                    if !myTokens.isEmpty {
+                        let valueToken = myTokens.remove(at: 0)
+                        try TokenMap[valueToken]!(valueToken, &myTokens)
+                    }
+                    
+                    // Restore the keyPath
+                    keyPath = savedKeyPath
+                } else {
+                    currentKey = val
+                }
             } else {
                 try TokenMap[token]!(token, &myTokens)
             }
@@ -94,6 +211,12 @@ class Parser {
                 case .Boolean(let val):
                     array.append(val)
                 case .DateTime(let val):
+                    array.append(val)
+                case .LocalDate(let val):
+                    array.append(val)
+                case .LocalTime(let val):
+                    array.append(val)
+                case .LocalDateTime(let val):
                     array.append(val)
                 case .InlineTableBegin:
                     array.append(try processInlineTable(tokens: &tokens))

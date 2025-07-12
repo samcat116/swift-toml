@@ -1,0 +1,35 @@
+# Dotted keys (TOML 0.5+)
+
+# Simple dotted keys
+name.first = "Tom"
+name.last = "Preston-Werner"
+
+# Deeply nested
+site.google.analytics.id = "UA-12345"
+
+# With quotes
+site."title" = "My Blog"
+site.'tagline' = 'A blog about stuff'
+
+# Equivalent to creating nested tables
+physical.color = "orange"
+physical.shape = "round"
+
+# Mixed with table syntax
+[fruit]
+apple.color = "red"
+apple.taste.sweet = true
+
+# With spaces around dots (allowed in TOML)
+a . b . c = 1
+d .e. f = 2
+
+# Equivalent representations
+# These two are the same:
+product.name = "Hammer"
+product.sku = 738594937
+
+# As this table:
+# [product]
+# name = "Hammer"  
+# sku = 738594937

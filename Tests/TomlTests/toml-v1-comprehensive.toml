@@ -1,0 +1,83 @@
+# Comprehensive TOML v1.0 features test
+# Tests all major features introduced from v0.5 to v1.0
+
+[metadata]
+title = "TOML v1.0 Comprehensive Test"
+version = "1.0.0"
+
+# Integer formats (v0.5+)
+[numbers.integers]
+decimal = 123_456_789
+hexadecimal = 0xDEAD_BEEF
+octal = 0o755
+binary = 0b1101_0110
+negative = -1_000_000
+
+# Float formats (v0.5+)
+[numbers.floats]
+regular = 3.141_592_653_589
+scientific = 1.23e-4
+underscore_exp = 1e1_0
+positive_inf = +inf
+negative_inf = -inf
+not_a_number = nan
+
+# Date and time types (v0.5+)
+[datetime]
+offset_datetime = 1979-05-27T07:32:00-08:00
+local_datetime = 1979-05-27T07:32:00
+local_date = 1979-05-27
+local_time = 07:32:00.999999
+
+# Dotted keys (v0.5+)
+site.name = "TOML Test Site"
+site.owner.name = "Tom Preston-Werner"
+site.owner.dob = 1979-05-27
+database.server = "192.168.1.1"
+database.ports = [8001, 8001, 8002]
+database.connection_max = 5_000
+database.enabled = true
+
+# String escape sequences (v1.0)
+[strings]
+basic = "Hello World"
+escape_chars = "Line 1\nLine 2\tTab\rCarriage Return"
+new_escapes = "ESC: \e HEX: \x41\x42\x43"
+unicode = "Unicode: \u03B1\u03B2\u03B3"
+mixed = "Quote: \" Backslash: \\ Newline: \n"
+
+# Arrays with mixed new types
+[arrays]
+integers = [0xFF, 0o77, 0b1010, 1_000]
+floats = [inf, -inf, nan, 3.14]
+dates = [1979-05-27, 1980-01-01]
+times = [07:32:00, 12:00:00]
+datetimes = [1979-05-27T07:32:00, 1980-01-01T12:00:00]
+
+# Nested structures with dotted keys
+[server.alpha]
+ip = "10.0.0.1"
+dc = "eqdc10"
+
+[server.beta]
+ip = "10.0.0.2"
+dc = "eqdc10"
+
+# Table arrays with new features
+[[products]]
+name = "Hammer"
+sku = 738_594_937
+price = 9.99
+available = true
+last_updated = 2023-12-01T10:30:00
+
+[[products]]
+name = "Nail"
+sku = 284_758_393
+price = 0.05
+available = true
+last_updated = 2023-12-01T10:31:00
+
+# Inline tables with new features
+servers = { alpha = { ip = "10.0.0.1", dc = "eqdc10" }, beta = { ip = "10.0.0.2", dc = "eqdc10" } }
+mixed_types = { int = 0xFF, float = inf, date = 1979-05-27, bool = true }

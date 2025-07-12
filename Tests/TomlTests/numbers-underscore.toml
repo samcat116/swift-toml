@@ -1,0 +1,32 @@
+# Numbers with underscores (TOML 0.5+)
+
+# Integers
+int1 = 1_000
+int2 = 5_349_221
+int3 = 1_2_3_4_5    # TOML allows underscores anywhere between digits
+
+# Negative integers
+int4 = -1_000_000
+
+# Hexadecimal with underscores
+hex1 = 0xdead_beef
+hex2 = 0xDEAD_BEEF
+hex3 = 0x00_00_00_FF
+
+# Octal with underscores
+oct1 = 0o7_5_5
+
+# Binary with underscores
+bin1 = 0b1101_0110
+bin2 = 0b1_0_1_0
+
+# Floats with underscores
+flt1 = 9_224_617.445_991_228_313
+flt2 = 1e1_000
+flt3 = 3.141_592_653_589
+flt4 = -0.001_234_567
+
+# Floats with exponents and underscores
+exp1 = 1e1_0
+exp2 = 2.5e+1_2
+exp3 = 5e-2_2

@@ -25,6 +25,7 @@ import Foundation
     - InvalidUnicodeCharacter: Non-existant unicode character specified
     - MixedArrayType: Array is composed of multiple types, members must all be the same type
     - SyntaxError: Document cannot be parsed due to a syntax error
+    - InvalidNumberFormat: Number string is not a valid format
 */
 public enum TomlError: Error {
     case DuplicateKey(String)
@@ -33,6 +34,7 @@ public enum TomlError: Error {
     case InvalidUnicodeCharacter(Int)
     case MixedArrayType(String)
     case SyntaxError(String)
+    case InvalidNumberFormat(String)
 }
 
 protocol SetValueProtocol {
@@ -237,6 +239,72 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
     public func date(_ path: String...) -> Date? {
         return value(path)
     }
+    
+    /**
+        Get a local date string from the specified key path.
+
+        - Parameter path: Key path of value
+
+        - Returns: local date string of key path (e.g., "1979-05-27")
+    */
+    public func localDate(_ path: [String]) -> String? {
+        return value(path)
+    }
+    
+    /**
+        Get a local date string from the specified key path.
+
+        - Parameter path: Key path of value
+
+        - Returns: local date string of key path (e.g., "1979-05-27")
+    */
+    public func localDate(_ path: String...) -> String? {
+        return value(path)
+    }
+    
+    /**
+        Get a local time string from the specified key path.
+
+        - Parameter path: Key path of value
+
+        - Returns: local time string of key path (e.g., "07:32:00")
+    */
+    public func localTime(_ path: [String]) -> String? {
+        return value(path)
+    }
+    
+    /**
+        Get a local time string from the specified key path.
+
+        - Parameter path: Key path of value
+
+        - Returns: local time string of key path (e.g., "07:32:00")
+    */
+    public func localTime(_ path: String...) -> String? {
+        return value(path)
+    }
+    
+    /**
+        Get a local date-time string from the specified key path.
+
+        - Parameter path: Key path of value
+
+        - Returns: local date-time string of key path (e.g., "1979-05-27T07:32:00")
+    */
+    public func localDateTime(_ path: [String]) -> String? {
+        return value(path)
+    }
+    
+    /**
+        Get a local date-time string from the specified key path.
+
+        - Parameter path: Key path of value
+
+        - Returns: local date-time string of key path (e.g., "1979-05-27T07:32:00")
+    */
+    public func localDateTime(_ path: String...) -> String? {
+        return value(path)
+    }
 
     /**
         Get a double value from the specified key path.
@@ -430,7 +498,14 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
             if let intVal = check as? Int {
                 return String(describing: intVal)
             } else if let doubleVal = check as? Double {
-                return String(describing: doubleVal)
+                // Check if the double is actually an integer
+                if doubleVal.truncatingRemainder(dividingBy: 1) == 0 && doubleVal >= Double(Int.min) && doubleVal <= Double(Int.max) {
+                    return String(format: "%.0f", doubleVal)
+                } else {
+                    // Format with appropriate precision, removing trailing zeros
+                    let formatted = String(format: "%.15g", doubleVal)
+                    return formatted
+                }
             } else if let stringVal = check as? String {
                 return "\"\(escape(string: stringVal))\""
             } else if let boolVal = check as? Bool {
