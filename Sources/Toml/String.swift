@@ -17,19 +17,18 @@
 import Foundation
 
 func getUnicodeChar(unicode: String) throws -> String {
+    // First validate that all characters are valid hex digits
+    let hexCharSet = CharacterSet(charactersIn: "0123456789ABCDEFabcdef")
+    if !unicode.unicodeScalars.allSatisfy({ hexCharSet.contains($0) }) {
+        throw TomlError.InvalidEscapeSequence("\\u" + unicode)
+    }
+    
     // check if it's a valid character
     let code = Int(strtoul(unicode, nil, 16))
     
-    // For 2-digit hex escapes (\xHH), we only validate basic ASCII range
-    if unicode.count == 2 {
-        if code < 0x0 || code > 0xFF {
-            throw TomlError.InvalidUnicodeCharacter(code)
-        }
-    } else {
-        // For unicode escapes, use the original validation
-        if code < 0x0 || (code > 0xD7FF && code < 0xE000) || code > 0x10FFFF {
-            throw TomlError.InvalidUnicodeCharacter(code)
-        }
+    // For unicode escapes, validate the code point
+    if code < 0x0 || (code > 0xD7FF && code < 0xE000) || code > 0x10FFFF {
+        throw TomlError.InvalidUnicodeCharacter(code)
     }
 
     return String(describing: UnicodeScalar(code)!)
@@ -68,8 +67,6 @@ func checkEscape(char: Character, escape: inout Bool) throws -> (String, Int) {
             unicodeSize = 4
         case "U":
             unicodeSize = 8
-        case "x":
-            unicodeSize = 2  // 2-digit hexadecimal escape
         default:
             throw TomlError.InvalidEscapeSequence("\\" + String(describing: char))
     }

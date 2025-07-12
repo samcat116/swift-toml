@@ -47,6 +47,23 @@ class Parser {
         - Returns: Array of key components
     */
     private func parseDottedKey(_ key: String) -> [String] {
+        // First check if this could be a dotted key with spaces (e.g., "a . b . c")
+        // These are valid bare dotted keys in TOML
+        let keyWithoutSpacesAroundDots = key.replacingOccurrences(of: " . ", with: ".")
+            .replacingOccurrences(of: " .", with: ".")
+            .replacingOccurrences(of: ". ", with: ".")
+        
+        // Check if after removing spaces around dots, we have a valid bare key pattern
+        let bareKeyComponentPattern = "^[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)*$"
+        if let _ = keyWithoutSpacesAroundDots.range(of: bareKeyComponentPattern, options: .regularExpression) {
+            // This is a dotted key (possibly with spaces around dots)
+            // Continue with normal parsing
+        } else {
+            // This key contains special characters that would require quoting,
+            // so it was likely a quoted key - return as single component
+            return [key]
+        }
+        
         var components: [String] = []
         var current = ""
         var inQuotes = false
