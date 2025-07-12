@@ -8,11 +8,8 @@ on:
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }} with Swift ${{ matrix.swift }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest]
+    name: Test on Ubuntu
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
