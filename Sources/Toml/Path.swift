@@ -17,40 +17,27 @@
 /**
     Abstraction for TOML key paths
 */
-public struct Path: Hashable, Equatable {
+public struct Path: Hashable, Sendable {
     internal(set) public var components: [String]
 
     init(_ components: [String]) {
         self.components = components
     }
 
-    func begins(with: [String]) -> Bool {
-        if with.count > components.count {
-            return false
-        }
-
-        for x in with.indices {
-            if components[x] != with[x] {
-                return false
-            }
-        }
-
-        return true
+    func begins(with prefix: [String]) -> Bool {
+        components.starts(with: prefix)
     }
 
+    // `components` is hashed in order. The previous implementation reduced
+    // the element hashes with XOR, which is both order-independent and
+    // self-cancelling: ["a", "b"] collided with ["b", "a"], and ["a", "a"]
+    // collided with []. Every collision degrades the `[Path: Any]` storage
+    // and the `Set<Path>` key/table indexes to linear scans.
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(componentsHashValue)
-    }
-
-    private var componentsHashValue: Int {
-        return components.reduce(0, { $0 ^ $1.hashValue })
-    }
-
-    public static func == (lhs: Path, rhs: Path) -> Bool {
-        return lhs.components == rhs.components
+        hasher.combine(components)
     }
 
     static func + (lhs: Path, rhs: Path) -> Path {
-        return Path(lhs.components + rhs.components)
+        Path(lhs.components + rhs.components)
     }
 }

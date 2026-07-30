@@ -16,7 +16,38 @@
 
 import Foundation
 
-enum Token: Hashable {
+/**
+    The kind of a `Token`, ignoring any associated value.
+
+    `Token` deliberately hashes and compares by kind alone so that the
+    parser's dispatch table can be keyed by kind. Spelling that out as its own
+    type keeps the intent explicit; the previous implementation compared
+    `hashValue`s, which made equality depend on hashing and silently breaks if
+    a case ever contributes its payload to the hash.
+*/
+enum TokenKind: Hashable, Sendable {
+    case identifier
+    case key
+    case integerNumber
+    case doubleNumber
+    case boolean
+    case dateTime
+    case localDate
+    case localTime
+    case localDateTime
+    case arrayBegin
+    case arrayEnd
+    case tableArrayBegin
+    case tableArrayEnd
+    case inlineTableBegin
+    case inlineTableEnd
+    case tableBegin
+    case tableSep
+    case tableEnd
+    case comment
+}
+
+enum Token: Hashable, Sendable {
     case Identifier(String)
     case Key(String)
     case IntegerNumber(Int)
@@ -37,84 +68,53 @@ enum Token: Hashable {
     case TableEnd
     case Comment(String)
 
+    var kind: TokenKind {
+        switch self {
+        case .Identifier: .identifier
+        case .Key: .key
+        case .IntegerNumber: .integerNumber
+        case .DoubleNumber: .doubleNumber
+        case .Boolean: .boolean
+        case .DateTime: .dateTime
+        case .LocalDate: .localDate
+        case .LocalTime: .localTime
+        case .LocalDateTime: .localDateTime
+        case .ArrayBegin: .arrayBegin
+        case .ArrayEnd: .arrayEnd
+        case .TableArrayBegin: .tableArrayBegin
+        case .TableArrayEnd: .tableArrayEnd
+        case .InlineTableBegin: .inlineTableBegin
+        case .InlineTableEnd: .inlineTableEnd
+        case .TableBegin: .tableBegin
+        case .TableSep: .tableSep
+        case .TableEnd: .tableEnd
+        case .Comment: .comment
+        }
+    }
+
     func hash(into hasher: inout Hasher) {
-        hasher.combine(caseHashValue)
+        hasher.combine(kind)
     }
 
-    private var caseHashValue: Int {
+    var value: Any? {
         switch self {
-        case .Identifier:
-            return 0
-        case .Key:
-            return 1
-        case .IntegerNumber:
-            return 2
-        case .DoubleNumber:
-            return 3
-        case .Boolean:
-            return 4
-        case .DateTime:
-            return 5
-        case .LocalDate:
-            return 6
-        case .LocalTime:
-            return 7
-        case .LocalDateTime:
-            return 8
-        case .ArrayBegin:
-            return 9
-        case .ArrayEnd:
-            return 10
-        case .TableArrayBegin:
-            return 11
-        case .TableArrayEnd:
-            return 12
-        case .InlineTableBegin:
-            return 13
-        case .InlineTableEnd:
-            return 14
-        case .TableBegin:
-            return 15
-        case .TableSep:
-            return 16
-        case .TableEnd:
-            return 17
-        case .Comment:
-            return 18
+        case .Identifier(let val): val
+        case .Key(let val): val
+        case .IntegerNumber(let val): val
+        case .DoubleNumber(let val): val
+        case .Boolean(let val): val
+        case .DateTime(let val): val
+        case .LocalDate(let val): val
+        case .LocalTime(let val): val
+        case .LocalDateTime(let val): val
+        case .Comment(let val): val
+        default: nil
         }
     }
 
-    var value : Any? {
-        switch self {
-        case .Identifier(let val):
-            return val
-        case .Key(let val):
-            return val
-        case .IntegerNumber(let val):
-            return val
-        case .DoubleNumber(let val):
-            return val
-        case .Boolean(let val):
-            return val
-        case .DateTime(let val):
-            return val
-        case .LocalDate(let val):
-            return val
-        case .LocalTime(let val):
-            return val
-        case .LocalDateTime(let val):
-            return val
-        case .Comment(let val):
-            return val
-        default:
-            return nil
-        }
-    }
-    
     static func == (lhs: Token, rhs: Token) -> Bool {
-        return lhs.hashValue == rhs.hashValue
+        lhs.kind == rhs.kind
     }
-    
 }
 
-typealias TokenGenerator = (String) throws -> Token?
+typealias TokenGenerator = @Sendable (Substring) throws(TomlError) -> Token?

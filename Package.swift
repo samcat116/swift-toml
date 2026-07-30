@@ -1,37 +1,32 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.3
 
 import PackageDescription
 
 let package = Package(
     name: "Toml",
     platforms: [
-        .macOS(.v10_15),
-        .iOS(.v13),
-        .tvOS(.v13),
-        .watchOS(.v6),
-        .macCatalyst(.v13)
+        .macOS(.v26),
+        .iOS(.v26),
+        .tvOS(.v26),
+        .watchOS(.v26),
+        .macCatalyst(.v26)
     ],
     products: [
         .library(
             name: "Toml",
             targets: ["Toml"]),
     ],
-    dependencies: [
-        .package(url: "https://github.com/apple/swift-testing.git", from: "0.12.0"),
-    ],
     targets: [
+        // Swift Testing ships with the toolchain, so no package dependencies
+        // are required.
         .target(
             name: "Toml",
-            dependencies: [],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]),
         .testTarget(
             name: "TomlTests",
-            dependencies: [
-                "Toml",
-                .product(name: "Testing", package: "swift-testing")
-            ],
+            dependencies: ["Toml"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]),

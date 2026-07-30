@@ -14,44 +14,38 @@
  * limitations under the License.
  */
 
-import Foundation
-
 /**
-    Class to evaluate input text with a regular expression and return tokens
+    Matches input text with a regular expression and turns it into a token.
 */
-class Evaluator {
-    let regex: String
+struct Evaluator: Sendable {
+    let pattern: Pattern
     let generator: TokenGenerator
     let push: [String]?
     let pop: Bool
-    let multiline: Bool
 
-    init (regex: String, generator: @escaping TokenGenerator,
-          push: [String]? = nil, pop: Bool = false, multiline: Bool = false) {
-        self.regex = regex
+    init(regex: String, generator: @escaping TokenGenerator,
+         push: [String]? = nil, pop: Bool = false, multiline: Bool = false) {
+        self.pattern = Pattern(regex, dotMatchesNewlines: multiline)
         self.generator = generator
         self.push = push
         self.pop = pop
-        self.multiline = multiline
     }
 
-    func evaluate (_ content: String) throws ->
-        (token: Token?, index: String.Index)? {
-        var token: Token?
-        var index: String.Index
+    /**
+        Match this evaluator against the start of `content`.
 
-        var options: NSRegularExpression.Options = []
+        - Parameter content: Remaining input to match against
 
-        if multiline {
-            options = [.dotMatchesLineSeparators]
+        - Returns: The token produced (which may be `nil` for input that is
+                   matched but not retained, such as whitespace) along with
+                   the index just past the match, or `nil` if this evaluator
+                   does not apply. `index` is valid in `content`'s base string.
+    */
+    func evaluate(_ content: Substring) throws(TomlError)
+        -> (token: Token?, index: String.Index)? {
+        guard let matched = pattern.prefixMatch(in: content) else {
+            return nil
         }
-
-        if let m = content.match(self.regex, options: options) {
-            token = try self.generator(m)
-            index = content.index(content.startIndex, offsetBy: m.count)
-            return (token, index)
-        }
-
-        return nil
+        return (try generator(matched), matched.endIndex)
     }
 }

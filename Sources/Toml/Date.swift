@@ -25,41 +25,73 @@ private func buildDateFormatter(format: String) -> DateFormatter {
     return formatter
 }
 
+/**
+    Holds a fully configured `DateFormatter` for sharing.
+
+    `DateFormatter` is documented as safe to use from several threads at once
+    provided it is not mutated after configuration, which holds here: these are
+    configured by `buildDateFormatter` and thereafter only read. The wrapper
+    states that explicitly rather than depending on whether a given platform's
+    Foundation happens to declare `DateFormatter` as `Sendable` -- Darwin does,
+    swift-corelibs-foundation has not always.
+
+    `Date.ISO8601FormatStyle` would avoid the shared reference type, but it can
+    only emit three fractional-second digits. These formats emit six, and that
+    is the library's serialized output -- changing it would silently alter
+    every document consumers round-trip.
+*/
+private struct SharedDateFormatter: @unchecked Sendable {
+    let formatter: DateFormatter
+
+    init(format: String) {
+        formatter = buildDateFormatter(format: format)
+    }
+}
+
 private let rfc3339fractionalformatter =
-    buildDateFormatter(format: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.SSSSSSZZZZZ")
+    SharedDateFormatter(format: "yyyy'-'MM'-'dd'T'HH':'mm':'ss.SSSSSSZZZZZ")
 
-private let rfc3339formatter: DateFormatter =
-    buildDateFormatter(format: "yyyy'-'MM'-'dd'T'HH':'mm':'ssZZZZZ")
+private let rfc3339formatter =
+    SharedDateFormatter(format: "yyyy'-'MM'-'dd'T'HH':'mm':'ssZZZZZ")
 
+/**
+    The current time zone's UTC offset, formatted as RFC 3339 requires.
+
+    The previous implementation built this with
+    `String(format: "%02d%02d", hours, minutes)`, which had three defects: the
+    mandatory `+`/`-` sign was missing, the `:` separator was missing, and
+    negative offsets rendered a stray sign on the minutes with no zero
+    padding, so `-05:30` came out as `-5-30`.
+*/
 private func localTimeOffset() -> String {
-    let totalSeconds: Int = TimeZone.current.secondsFromGMT()
-    let minutes: Int = (totalSeconds / 60) % 60
-    let hours: Int = totalSeconds / 3600
-    return String(format: "%02d%02d", hours, minutes)
+    let totalSeconds = TimeZone.current.secondsFromGMT()
+    let sign = totalSeconds < 0 ? "-" : "+"
+    let magnitude = abs(totalSeconds)
+    // The sign is concatenated rather than passed as a `%@` argument: `String`
+    // is not a `CVarArg` on all platforms' Foundation.
+    return sign + String(format: "%02d:%02d", magnitude / 3600, (magnitude % 3600) / 60)
  }
 
 extension Date {
-    
+
     // rfc3339 w fractional seconds w/ time offset
     init?(rfc3339String: String, fractionalSeconds: Bool = true, localTime: Bool = false) {
         var dateStr = rfc3339String
-        var dateFormatter: DateFormatter
 
         if localTime {
             dateStr += localTimeOffset()
         }
-        
-        dateFormatter = fractionalSeconds ? rfc3339fractionalformatter : rfc3339formatter
 
-        if let d = dateFormatter.date(from: dateStr) {
-            self.init(timeInterval: 0, since: d)
-        } else {
+        let dateFormatter = fractionalSeconds ? rfc3339fractionalformatter : rfc3339formatter
+
+        guard let d = dateFormatter.formatter.date(from: dateStr) else {
             return nil
         }
+        self.init(timeInterval: 0, since: d)
     }
 
     func rfc3339String() -> String {
-        return rfc3339fractionalformatter.string(from: self)
+        return rfc3339fractionalformatter.formatter.string(from: self)
     }
-    
+
 }

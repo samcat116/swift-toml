@@ -6,19 +6,61 @@ on:
   pull_request:
     branches: [master, main]
 
+# A new push to the same branch supersedes the run already in flight.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    name: Test on Ubuntu
+  linux:
+    # The package needs a Swift 6.3 toolchain, and the GitHub-hosted Ubuntu
+    # images ship none at all -- the previous workflow called `swift` on
+    # ubuntu-latest, where it does not exist. The official Swift images pin
+    # the toolchain explicitly rather than depending on what an image happens
+    # to preinstall.
+    name: Linux (Swift ${{ matrix.swift }})
     runs-on: ubuntu-latest
+    container: swift:${{ matrix.swift }}-noble
+    strategy:
+      fail-fast: false
+      matrix:
+        # 6.3 is the floor declared by Package.swift's tools version, and is
+        # also the newest toolchain released for Linux. Add later versions
+        # here as they ship.
+        swift: ["6.3"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - name: Get swift version
+      - name: Swift version
         run: swift --version
 
       - name: Build
-        run: swift build -v
+        run: swift build --build-tests
 
       - name: Run tests
         run: swift test
+
+  macos:
+    # Package.swift declares macOS 26 as the deployment floor, so this is the
+    # only job that exercises the platforms the package actually claims.
+    # macos-26's default is Xcode 26.5, which provides Swift 6.3; were the
+    # image default ever to regress below that, `swift build` fails with an
+    # explicit tools-version error rather than something obscure.
+    name: macOS
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build
+        run: swift build --build-tests
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build release
+        run: swift build -c release

@@ -25,7 +25,7 @@ func setupWorkingDirectory() {
         .deletingLastPathComponent() // TomlTests
         .deletingLastPathComponent() // Tests  
         .deletingLastPathComponent() // package root
-    FileManager.default.changeCurrentDirectoryPath(packageRoot.path)
+    _ = FileManager.default.changeCurrentDirectoryPath(packageRoot.path)
 }
 
 func tomlFilePath(_ filename: String) -> String {
@@ -931,7 +931,8 @@ func testNumbersWithUnderscores() throws {
     
     // Test floats with underscores
     #expect(actual.double("flt1") == 9224617.445991228313)
-    #expect(actual.double("flt2") == 1e1000)
+    // The fixture's `1e1_000` exceeds Double's range and parses to infinity.
+    #expect(actual.double("flt2") == .infinity)
     #expect(actual.double("flt3")! - 3.141592653589 < 0.0000000001)
     #expect(actual.double("flt4") == -0.001234567)
     

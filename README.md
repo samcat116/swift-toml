@@ -90,9 +90,15 @@ Add the project to  to your Package.swift file as a dependency:
 
 ## Compatibility
 
-SwiftToml is compatible with Swift 6.0+ and TOML 1.0.0.
+SwiftToml is compatible with Swift 6.3+ and TOML 1.0.0, and requires
+macOS 26 / iOS 26 / tvOS 26 / watchOS 26 or later.
 
-It has been tested with Swift 6.0 on macOS and supports all major TOML v1.0 features including:
+Errors are reported through `TomlError`, whose cases use lowerCamelCase
+(`TomlError.syntaxError`, `TomlError.duplicateKey`, and so on). `init(withString:)`
+declares `throws(TomlError)`, so a `catch` binds the concrete error type
+without a cast.
+
+It has been tested with Swift 6.4 on macOS and supports all major TOML v1.0 features including:
 
 ### TOML v1.0 Features
 
