@@ -29,7 +29,7 @@ func setupWorkingDirectory() {
 }
 
 func tomlFilePath(_ filename: String) -> String {
-    return "Tests/TomlTests/\(filename)"
+    return "Tests/TomlTests/Fixtures/\(filename)"
 }
 
 @Test("Simple TOML parsing")

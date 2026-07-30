@@ -32,6 +32,7 @@ let package = Package(
                 "Toml",
                 .product(name: "Testing", package: "swift-testing")
             ],
+            exclude: ["Fixtures"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]),
