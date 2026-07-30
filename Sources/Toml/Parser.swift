@@ -413,6 +413,6 @@ struct Parser {
             return
         }
 
-        try checkAndSetArray(check: arr, key: myKeyPath, out: &toml)
+        checkAndSetArray(check: arr, key: myKeyPath, out: &toml)
     }
 }

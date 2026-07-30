@@ -32,7 +32,15 @@ if [ ! -x "$TOML_TEST" ]; then
         go install "github.com/toml-lang/toml-test/cmd/toml-test@$TOML_TEST_VERSION"
 fi
 
-swift build --target TomlTestDecoder
+swift build --product TomlTestDecoder
+
+DECODER=".build/debug/TomlTestDecoder"
+if [ ! -x "$DECODER" ]; then
+    # Without this the suite still runs, and reports every one of its 550
+    # documents as a parser failure rather than as a missing binary.
+    echo "$DECODER was not built" >&2
+    exit 1
+fi
 
 SKIP=()
 if [ "$TOML_VERSION" = "1.0.0" ]; then
@@ -56,4 +64,4 @@ fi
 # loaded machine simply by being slow to start. It is here to catch a parser
 # that loops forever, and ten seconds does that just as well.
 exec "$TOML_TEST" -toml "$TOML_VERSION" -timeout 10s \
-    ${SKIP[@]+"${SKIP[@]}"} .build/debug/TomlTestDecoder
+    ${SKIP[@]+"${SKIP[@]}"} "$DECODER"
