@@ -27,6 +27,7 @@ let package = Package(
         .testTarget(
             name: "TomlTests",
             dependencies: ["Toml"],
+            exclude: ["Fixtures"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]),
