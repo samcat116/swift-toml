@@ -473,12 +473,38 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
     /**
         Get a TOML table from the document
 
+        Returns `nil` when the document has nothing at `path` -- neither a
+        table of that name nor any keys beneath it -- so that `if let` means
+        what it looks like it means. Use `table(from:)` to construct a view
+        unconditionally, empty or not.
+
+        Called with no arguments this names the document root, which always
+        exists, so the result is never `nil`.
+
         - Parameter path: Key path of value
 
-        - Returns: Table of name `path`
+        - Returns: Table of name `path`, or `nil` if the path is not present
     */
     public func table(_ path: String...) -> Toml? {
+        guard !path.isEmpty else { return table(from: path) }
+        guard hasKey(key: path) || hasContent(under: path) else { return nil }
         return table(from: path)
+    }
+
+    /**
+        Check whether any key or sub-table lies beneath `path`.
+
+        Covers the paths that are not registered as table names: an array of
+        tables (`[[a.b]]`) stores `a.b` as a key, so `a` is only discoverable
+        as the prefix of that key.
+
+        - Parameter path: Key path to check
+
+        - Returns: True if the document holds anything under `path`
+    */
+    private func hasContent(under path: [String]) -> Bool {
+        return keyNames.contains { $0.begins(with: path) }
+            || tableNames.contains { $0.begins(with: path) }
     }
 
     /**

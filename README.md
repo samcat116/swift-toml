@@ -61,8 +61,11 @@ print(try toml.value("title")!)
 // get array of type [String]
 let array: [String] = toml.array("locations")!
 
-// get table
+// get table; nil if the document has nothing at that path
 let table1 = toml.table("table1")
+
+// get a table view whether or not the path is present (empty if absent)
+let table2 = toml.table(from: ["table2"])
 
 // iterate over all tables at the root level
 for (tablePath, table) in toml.tables() { ... }
