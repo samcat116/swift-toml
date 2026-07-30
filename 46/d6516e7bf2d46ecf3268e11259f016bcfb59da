@@ -1,0 +1,219 @@
+Tests/TomlTests/Fixtures/expected-nested-tables.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-12
+Tests/TomlTests/Fixtures/bool.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/string-no-close.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/string-bad-byte-escape.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/integer-formats.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-19
+Tests/TomlTests/Fixtures/unicode-literal.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/datetime.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/unicode-escape.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/datetime-malformed-no-t.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/duplicate-tables.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/table-array-malformed-empty.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/text-after-string.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/key-newline.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/array-mixed-types-strings-and-ints.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/arrays.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-8
+Tests/TomlTests/Fixtures/array-mixed-types-ints-and-floats.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/string-byte-escapes.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/arrays-nested.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/table-array-malformed-bracket.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/table-nested-brackets-open.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/table-whitespace-invalid.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/key-open-bracket.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/long-float.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/key-space-error.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/string-empty.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/example.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-5
+Tests/TomlTests/Fixtures/table-with-pound.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/duplicate-keys.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/text-after-integer.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/text-after-table.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/array-mixed-types-arrays-and-ints.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/dotted-keys-spaces.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-5
+Tests/TomlTests/Fixtures/expected-serialize.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-37
+Tests/TomlTests/Fixtures/implicit-and-explicit-after.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-5
+Tests/TomlTests/Fixtures/key-hash.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/table-sub-empty.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/float-no-trailing-digits.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/float.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/table-nested-brackets-close.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/string-with-pound.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/escape-sequences.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-19
+Tests/TomlTests/Fixtures/array-nospaces.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/hard_example-error3.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-31
+Tests/TomlTests/Fixtures/table-with-pound-invalid.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/text-after-array-entries.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-4
+Tests/TomlTests/Fixtures/text-in-array.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-5
+CLAUDE.md
+  s_5cdaa482de3368::t_f3bfa6ad591ee0 31
+Tests/TomlTests/Fixtures/hard_example-error2.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-31
+Tests/TomlTests/Fixtures/comments-everywhere.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-24
+Tests/TomlTests/Fixtures/key-special-chars.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/string-bad-escape.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/simple.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-8
+Tests/TomlTests/Fixtures/table-array-nest.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-17
+Tests/TomlTests/Fixtures/text-before-array-separator.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-4
+Tests/TomlTests/Fixtures/dotted-keys.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-35
+Tests/TomlTests/Fixtures/nested-tables.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-11
+Tests/TomlTests/Fixtures/key-space.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/hard_example-error4.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-25
+Tests/TomlTests/Fixtures/datetime-malformed-no-leads.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/hard_example_unicode.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-36
+Tests/TomlTests/Fixtures/integer.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/table-whitespace.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/toml-v1-simple.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-23
+Tests/TomlTests/Fixtures/key-start-bracket.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-3
+Tests/TomlTests/Fixtures/float-no-leading-zero.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/raw-multiline-string.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-9
+Tests/TomlTests/Fixtures/datetime-malformed-with-milli.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/arrays-hetergeneous.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Package.swift
+  s_5cdaa482de3368::t_cab667f72fb65b 35
+Tests/TomlTests/TomlTests.swift
+  s_5cdaa482de3368::t_09b9e961542912 32
+Tests/TomlTests/Fixtures/hard_example-error1.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-33
+Tests/TomlTests/Fixtures/key-empty.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/serialize.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-47
+Tests/TomlTests/Fixtures/toml-v1-comprehensive.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-83
+Tests/TomlTests/Fixtures/key-single-open-bracket.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/array-empty.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/hard_example.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-33
+Tests/TomlTests/Fixtures/long-integer.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/multiline-string.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-23
+Tests/TomlTests/Fixtures/string-simple.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/datetime-malformed-no-secs.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/table-array-implicit.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/table-array-one.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-3
+Tests/TomlTests/Fixtures/toml-example.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-47
+Tests/TomlTests/Fixtures/raw-string.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-7
+Tests/TomlTests/Fixtures/local-date-time.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-18
+Tests/TomlTests/Fixtures/table-empty-invalid.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/table-empty.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/implicit-groups.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-2
+Tests/TomlTests/Fixtures/duplicate-key-table.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-5
+Tests/TomlTests/Fixtures/special-float-values.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-16
+Tests/TomlTests/Fixtures/key-equals-nospace.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/empty-table.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/dotted-keys-simple.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-8
+Tests/TomlTests/Fixtures/date-format.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-7
+Tests/TomlTests/Fixtures/string-escapes.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-11
+Tests/TomlTests/Fixtures/numbers-underscore.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-32
+Tests/TomlTests/Fixtures/table-array-many.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-11
+Tests/TomlTests/Fixtures/empty-implicit-table.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/key-two-equals.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1
+Tests/TomlTests/Fixtures/implicit-and-explicit-before.toml
+  s_5cdaa482de3368::t_f1d7ed8e434f01 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "46d6516e7bf2d46ecf3268e11259f016bcfb59da",
+  "prompts": {},
+  "sessions": {
+    "s_5cdaa482de3368": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fb4ac132-447b-41ff-b9b2-b704d0472826",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Sam Schmitt <sam@samschmitt.com>"
+    }
+  }
+}
