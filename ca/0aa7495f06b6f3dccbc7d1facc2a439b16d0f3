@@ -1,0 +1,144 @@
+Sources/Toml/Parser.swift
+  s_13cc86e6fc4c65::t_d75b66079305ce 66
+  s_13cc86e6fc4c65::t_f939f74b2c5848 259-268
+  s_13cc86e6fc4c65::t_58114b5c5f01e0 210
+  s_13cc86e6fc4c65::t_77022593bd2228 327,340-344,352
+  s_13cc86e6fc4c65::t_95f80b9f2846d0 313-314
+  s_13cc86e6fc4c65::t_6e915929d9a578 382-388,393
+  s_13cc86e6fc4c65::t_59f9d3f9e073cf 103-104
+  s_13cc86e6fc4c65::t_cd7394f8f07289 188-192
+  s_13cc86e6fc4c65::t_f476c9c6ed6cf2 390
+  s_13cc86e6fc4c65::t_570a872ea280fb 328-338
+  s_13cc86e6fc4c65::t_279a9313ee3a25 269-280
+  s_13cc86e6fc4c65::t_e6df7779bfc82b 74-75,84-87
+  s_13cc86e6fc4c65::t_f0c26d374930ed 80-83
+  s_13cc86e6fc4c65::t_9b0ffa409d9616 291,293-295,297
+  s_13cc86e6fc4c65::t_bde6c3ed48df91 355-356,358-361
+  s_13cc86e6fc4c65::t_515375bdf8b67c 239-244
+  s_13cc86e6fc4c65::t_71f5f18c6b7ac4 153-157,160-176
+  s_13cc86e6fc4c65::t_3397d15c995f4d 76-79
+  s_13cc86e6fc4c65::t_420c1caea5b854 34-36
+  s_13cc86e6fc4c65::t_4e8cead4863d4e 25-33
+  s_13cc86e6fc4c65::t_e5a853815065d4 138-139
+  s_13cc86e6fc4c65::t_51f4cb60944397 197
+Sources/Toml/Evaluator.swift
+  s_13cc86e6fc4c65::t_cf0fefa5a4c6a5 42,45-49
+  s_13cc86e6fc4c65::t_d432837402e783 35-41,43-44,50-51
+  s_13cc86e6fc4c65::t_5e740e8451b8d0 34
+Tests/TomlTests/datetime-optional-secs.toml
+  s_13cc86e6fc4c65::t_e5fd4f5f222016 1-4
+Tests/TomlTests/TomlTests.swift
+  s_13cc86e6fc4c65::t_4b155c81966a5a 777-778,780-781
+  s_13cc86e6fc4c65::t_a338a899f7685a 573-577,579-583,586-587,589-593,596-597,599-603
+  s_13cc86e6fc4c65::t_2dad385d8b73c6 614-615,617-622
+  s_13cc86e6fc4c65::t_79d47ca549f4cc 1024-1029,1033-1036,1040-1043
+README.md
+  s_13cc86e6fc4c65::t_2d26c3c2ca11ce 98,106-111,113,119-121,129-139
+  s_13cc86e6fc4c65::t_fa5adc07194cd0 75,80-81
+  s_13cc86e6fc4c65::t_be466a1e7b5b97 10-12
+  s_13cc86e6fc4c65::t_6883c1e2d78bc5 82
+  s_13cc86e6fc4c65::t_9e5d78132e77ec 140
+Sources/Toml/Grammar.swift
+  s_13cc86e6fc4c65::t_fa8cd7107127e5 46-48,51-53
+  s_13cc86e6fc4c65::t_e88f8a468ab805 252,255,259-266
+  s_13cc86e6fc4c65::t_c7455ee402442d 113,129
+  s_13cc86e6fc4c65::t_38f04b0ce62972 403-406,411-412
+  s_13cc86e6fc4c65::t_d679862c4b6994 415
+  s_13cc86e6fc4c65::t_60310f594ad164 223-225
+  s_13cc86e6fc4c65::t_a6a5becd4162bf 429
+  s_13cc86e6fc4c65::t_442f8ef3722423 188-194,197-198,201,203,205,210,214
+  s_13cc86e6fc4c65::t_52004a32733775 440-441
+  s_13cc86e6fc4c65::t_342ad0a6c15093 452-455
+  s_13cc86e6fc4c65::t_58a7a8c26fe41e 459-461,463
+  s_13cc86e6fc4c65::t_7f81c08378e9fb 395
+  s_13cc86e6fc4c65::t_4b746c8d3ac85e 416-420,424,427-428
+  s_13cc86e6fc4c65::t_92c920dd6002c1 123
+  s_13cc86e6fc4c65::t_b23c67c1a44c3a 101-104
+  s_13cc86e6fc4c65::t_fa649431f56042 60-63
+  s_13cc86e6fc4c65::t_3429166b4fc153 281-285,288,291,294,297
+  s_13cc86e6fc4c65::t_548367b532e0de 339
+  s_13cc86e6fc4c65::t_1c5710fdac1ef7 109-112
+  s_13cc86e6fc4c65::t_9e489b8ec4d1f9 200,208,212,216
+  s_13cc86e6fc4c65::t_e1c7f4417e8662 206,211,215
+  s_13cc86e6fc4c65::t_1d8ca17a243544 142-149,166-173
+  s_13cc86e6fc4c65::t_49cf02c2579c43 64,74,421-422
+  s_13cc86e6fc4c65::t_7e84ec38216e0f 79-100,105-107,115-117,119-120,122,124,131-135
+  s_13cc86e6fc4c65::t_6768a8de4fd560 352-361,365,367-389,407-410
+  s_13cc86e6fc4c65::t_055af1e66f7069 435-439,445-447
+  s_13cc86e6fc4c65::t_5319724de6a4a5 36-38
+  s_13cc86e6fc4c65::t_a6827c04339e08 267
+Sources/Toml/Helpers.swift
+  s_13cc86e6fc4c65::t_6b20915001e39d 181-224
+  s_13cc86e6fc4c65::t_85faccd8e15c1b 63
+  s_13cc86e6fc4c65::t_85984d2283fa0e 262,274-279,284-285,296-298,300-303
+  s_13cc86e6fc4c65::t_72817bc7236307 180,225-233
+  s_13cc86e6fc4c65::t_e8be8f66f50edc 32-33,35-39,41-43,45,54,56,58,60,62,64,66
+  s_13cc86e6fc4c65::t_a8aff5c4c63361 89-179
+Tests/TomlTests/RegressionTests.swift
+  s_13cc86e6fc4c65::t_351414368bb9b2 168
+CLAUDE.md
+  s_13cc86e6fc4c65::t_d22019bdabbf3d 24-27
+  s_13cc86e6fc4c65::t_b316d6851b2d03 10,12
+  s_13cc86e6fc4c65::t_3e2619c03fec2c 47-52,55-57
+  s_13cc86e6fc4c65::t_5f3d91edb9371d 31,33-34
+Sources/TomlTestDecoder/main.swift
+  s_13cc86e6fc4c65::t_55337dee08c591 1-116,124-134
+  s_13cc86e6fc4c65::t_28af215f9a3e98 117-123
+.github/workflows/ci.yml
+  s_13cc86e6fc4c65::t_5c0aaf1e52fa3f 67-91
+Tests/TomlTests/Spec11Tests.swift
+  s_13cc86e6fc4c65::t_c027dc27da7b8b 179-180
+  s_13cc86e6fc4c65::t_f3701aaa29cb7d 1-178,182,184-276
+  s_13cc86e6fc4c65::t_53cce8a11c6bf7 181,183
+Package.swift
+  s_13cc86e6fc4c65::t_53a4b01e743166 27-33
+Sources/Toml/Date.swift
+  s_13cc86e6fc4c65::t_0e8c61f750d267 82-169
+  s_13cc86e6fc4c65::t_0cceee5c04f8cf 171-183
+  s_13cc86e6fc4c65::t_8ba7d1a33b17b2 279-289,295
+  s_13cc86e6fc4c65::t_41670d41d76555 170,184-257
+  s_13cc86e6fc4c65::t_7de3276a1e72f4 19-46
+Scripts/toml-test.sh
+  s_13cc86e6fc4c65::t_afe23d0bba4acf 1-54
+  s_13cc86e6fc4c65::t_9b2313355f253c 55
+Sources/Toml/Toml.swift
+  s_13cc86e6fc4c65::t_c3fcc8fe4b985a 26-28
+  s_13cc86e6fc4c65::t_3fc3bfd402cdca 325
+  s_13cc86e6fc4c65::t_b2f7946e6c0310 314
+  s_13cc86e6fc4c65::t_084a7a932898b3 567-569
+  s_13cc86e6fc4c65::t_f7318f976b0ed9 274-284,287-304
+  s_13cc86e6fc4c65::t_7407787d965813 336
+  s_13cc86e6fc4c65::t_85a30a956f045e 347
+  s_13cc86e6fc4c65::t_2b6c9d1e91212d 358
+Sources/Toml/String.swift
+  s_13cc86e6fc4c65::t_32d4e9eb17a53e 214
+  s_13cc86e6fc4c65::t_3ebfb837f67dd9 142,144,147-159
+  s_13cc86e6fc4c65::t_17aec3799a83d0 92-110
+  s_13cc86e6fc4c65::t_10a6dd9d08cb1e 34-43
+  s_13cc86e6fc4c65::t_6f5f0a9394227e 73-75
+Sources/Toml/Lexer.swift
+  s_13cc86e6fc4c65::t_72486934f2ad98 87-89
+  s_13cc86e6fc4c65::t_621468b382208f 82-86,90-93
+Sources/Toml/Tokens.swift
+  s_13cc86e6fc4c65::t_914be04f46b622 53-54
+  s_13cc86e6fc4c65::t_15ce5148090e73 72-73
+  s_13cc86e6fc4c65::t_d063b875660831 96
+  s_13cc86e6fc4c65::t_d78018f2d6e58f 48
+  s_13cc86e6fc4c65::t_7a886cccaacb45 112-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "ca0aa7495f06b6f3dccbc7d1facc2a439b16d0f3",
+  "prompts": {},
+  "sessions": {
+    "s_13cc86e6fc4c65": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "435fd282-f2cd-434c-bf60-0f248b0f4d0e",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Sam Schmitt <sam@samschmitt.com>"
+    }
+  }
+}
