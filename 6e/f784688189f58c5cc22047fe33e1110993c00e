@@ -1,0 +1,72 @@
+Sources/Toml/Tokens.swift
+  s_d9df8f8d2fc9c7::t_aa123732326ef9 19-27,29-50,71,73-91,95-99,101-111,114,116,120
+  s_d9df8f8d2fc9c7::t_d7307c35abe3f2 28
+README.md
+  s_d9df8f8d2fc9c7::t_ce5d8c91e9709d 93-94,96-101
+Sources/Toml/Helpers.swift
+  s_d9df8f8d2fc9c7::t_0e028a6643ef67 19,26,34-35,38,40,42,48,53,59,65,71,77,86-89,91-100,103,119-120,130-133,135-136,145-150,154,163,166-168,174,182-188,191-207,209-210,212-213,219
+  s_d9df8f8d2fc9c7::t_a8fd50b665a71c 169-170
+CLAUDE.md
+  s_d9df8f8d2fc9c7::t_ad41ad2c46298a 10
+  s_d9df8f8d2fc9c7::t_17144bdd3d968c 41
+Sources/Toml/Parser.swift
+  s_d9df8f8d2fc9c7::t_8bd0d41087785d 254,260,262-263,266-268,271,278,289,293,297-299,301-302,305-308,311-313,319,325-330,337,339,354,356
+  s_d9df8f8d2fc9c7::t_459960813230e2 21-24,27,32-34,40,42,46,49,54-56,59,63,65-79,96,102-104,113,115,117,123,126-127,135,137-138,140,147,152-182,190,193,225,227,237,242,252
+Sources/Toml/Grammar.swift
+  s_d9df8f8d2fc9c7::t_65f664715c31d0 330-331
+  s_d9df8f8d2fc9c7::t_2c2ebf1de0fe3d 243
+  s_d9df8f8d2fc9c7::t_4b3508d43dd88a 84
+  s_d9df8f8d2fc9c7::t_3877f1450f000e 201
+  s_d9df8f8d2fc9c7::t_e889fd2ed12814 19-25,28-40,43,47,52,62,66,70,90,95,99,109,115,125,130,134,139,142,148,151,155-156,159-160,163-164,167-168,171-172,177,200,206,218-221,223-230,234,237,240,245-246,248,253,256-257,260-261,272,279,288,297,305,320,323,326,336,340-342,346-348,354,364
+  s_d9df8f8d2fc9c7::t_3e05830fc5c1d6 77-83,85
+  s_d9df8f8d2fc9c7::t_68cfaaeda17284 56-58
+  s_d9df8f8d2fc9c7::t_47d1474d109da0 106,108,122,124
+  s_d9df8f8d2fc9c7::t_c31b1d9a525e12 138,147
+  s_d9df8f8d2fc9c7::t_2cacbec7b47ee3 222
+Sources/Toml/Regex.swift
+  s_d9df8f8d2fc9c7::t_cac12c7bd99a65 17-27,34-48,50-52,55-66,68
+  s_d9df8f8d2fc9c7::t_8db3318175ebb5 28-33
+Sources/Toml/Date.swift
+  s_d9df8f8d2fc9c7::t_ef9b49fda5d57d 70-72
+  s_d9df8f8d2fc9c7::t_53b0015788fa1e 87,94
+  s_d9df8f8d2fc9c7::t_395303a16a5e9a 57-58,60,65,67-69,76,96
+  s_d9df8f8d2fc9c7::t_8ea5cc4f66932e 28-50,52,54-55
+  s_d9df8f8d2fc9c7::t_a7c319cc86eaba 53,61-64,85-86,90
+Sources/Toml/Serialize.swift
+  s_d9df8f8d2fc9c7::t_4070237c994b66 56
+  s_d9df8f8d2fc9c7::t_031bd7b6409145 23
+  s_d9df8f8d2fc9c7::t_5eeb8dac90f27a 39-40
+Sources/Toml/Evaluator.swift
+  s_d9df8f8d2fc9c7::t_717aad413c495a 18,20-21,26-28,34-35,37,39-47,49
+Sources/Toml/Toml.swift
+  s_d9df8f8d2fc9c7::t_61d1859517069b 86,104
+  s_d9df8f8d2fc9c7::t_7627fa92aac0d8 108,110
+  s_d9df8f8d2fc9c7::t_fd30f6e234682f 22-28,30-58
+  s_d9df8f8d2fc9c7::t_e34b4e662724cb 506
+  s_d9df8f8d2fc9c7::t_bf9c599c1de905 95
+Sources/Toml/Path.swift
+  s_d9df8f8d2fc9c7::t_6bafa28d2c7b47 20,27-28,31-35,37,41
+Sources/Toml/Lexer.swift
+  s_d9df8f8d2fc9c7::t_495a784e41bd52 20,22,24,29,31-37,39-42,45-48,50-52,54-56,58-59,61-69,71-74,78,81
+Package.swift
+  s_d9df8f8d2fc9c7::t_75c63bf9488870 1,8-12,20-21,29
+Sources/Toml/String.swift
+  s_d9df8f8d2fc9c7::t_d9b4f964132970 19-23,25-28,31,34,68,76,80-119,122-123,126,128,145,149,158,164-170,181,211,216-231
+  s_d9df8f8d2fc9c7::t_9120a2e4fc29e9 179-180,182-196,198,200-205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "6ef784688189f58c5cc22047fe33e1110993c00e",
+  "prompts": {},
+  "sessions": {
+    "s_d9df8f8d2fc9c7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d51be26e-15b8-4451-9026-a5333853b869",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Sam Schmitt <sam@samschmitt.com>"
+    }
+  }
+}
