@@ -154,6 +154,76 @@ struct PathRegressionTests {
     }
 }
 
+// MARK: - Table presence
+
+@Suite("table(_:) presence semantics")
+struct TableAccessorRegressionTests {
+
+    @Test("An absent table is nil, not an empty table")
+    func absentTableIsNil() throws {
+        // `table(_:)` delegated straight to the non-optional `table(from:)`,
+        // which builds a view out of whatever matches the prefix -- nothing,
+        // for a section that is not in the document. The optional return
+        // therefore never was nil and every caller's `if let` was dead code.
+        let toml = try Toml(withString: "a = 1")
+        #expect(toml.table("missing") == nil)
+        #expect(toml.table("a", "b") == nil)
+        #expect(toml.table("missing", "deeper") == nil)
+    }
+
+    @Test("A declared table is returned, including empty and implicit ones")
+    func declaredTablesArePresent() throws {
+        let toml = try Toml(withString: """
+            [empty]
+
+            [a.b]
+            v = 1
+            """)
+        #expect(toml.table("empty") != nil)
+        #expect(toml.table("a", "b")?.int("v") == 1)
+        // `a` is only implied by `[a.b]`, but the parser registers it.
+        #expect(toml.table("a")?.int("b", "v") == 1)
+    }
+
+    @Test("Inline tables and arrays of tables are present")
+    func inlineTablesAndTableArrays() throws {
+        let inline = try Toml(withString: "a = {b = 1}")
+        #expect(inline.table("a")?.int("b") == 1)
+
+        // `[[a.b]]` stores `a.b` as a key holding [Toml] rather than as a
+        // table name, so `a` is reachable only as a prefix of that key.
+        let arrayOfTables = try Toml(withString: "[[a.b]]\nid = 1")
+        #expect(arrayOfTables.table("a", "b") != nil)
+        #expect(arrayOfTables.table("a") != nil)
+        let nested: [Toml]? = arrayOfTables.table("a")?.array("b")
+        #expect(nested?.first?.int("id") == 1)
+    }
+
+    @Test("A key that is not a table is still reachable as a table view")
+    func dottedKeysWithoutAnExplicitTable() throws {
+        let toml = try Toml(withString: "a.b.c = 1")
+        #expect(toml.table("a")?.int("b", "c") == 1)
+        #expect(toml.table("a", "b")?.int("c") == 1)
+        #expect(toml.table("a", "b", "c") != nil)   // the key itself
+        #expect(toml.table("a", "b", "d") == nil)
+    }
+
+    @Test("The root table is never nil")
+    func rootTableIsAlwaysPresent() throws {
+        #expect(try Toml(withString: "").table() != nil)
+        #expect(try Toml(withString: "a = 1").table() != nil)
+    }
+
+    @Test("table(from:) still builds a view unconditionally")
+    func tableFromStaysUnconditional() throws {
+        // The explicit "give me a view, empty or not" API is unchanged.
+        let toml = try Toml(withString: "a = 1")
+        let empty = toml.table(from: ["missing"])
+        #expect(empty.keyNames.isEmpty)
+        #expect(empty.tableNames.isEmpty)
+    }
+}
+
 // MARK: - Tokens
 
 @Suite("Token identity")

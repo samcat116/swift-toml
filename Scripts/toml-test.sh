@@ -52,4 +52,8 @@ if [ "$TOML_VERSION" = "1.0.0" ]; then
     )
 fi
 
-exec "$TOML_TEST" -toml "$TOML_VERSION" ${SKIP[@]+"${SKIP[@]}"} .build/debug/TomlTestDecoder
+# The default per-test timeout is one second, which the decoder can miss on a
+# loaded machine simply by being slow to start. It is here to catch a parser
+# that loops forever, and ten seconds does that just as well.
+exec "$TOML_TEST" -toml "$TOML_VERSION" -timeout 10s \
+    ${SKIP[@]+"${SKIP[@]}"} .build/debug/TomlTestDecoder

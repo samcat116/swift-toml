@@ -36,7 +36,7 @@ suite; nothing in the library depends on it.
 
 ## Testing Approach
 
-Tests use Swift Testing framework (migrated from XCTest) with actual TOML files as fixtures in `Tests/TomlTests/`. Each test file tests specific TOML features:
+Tests use Swift Testing framework (migrated from XCTest) with actual TOML files as fixtures in `Tests/TomlTests/Fixtures/` (excluded from the test target in `Package.swift`, and read by path via `tomlFilePath(_:)`). Each test file tests specific TOML features:
 - Basic types: `bool_*.toml`, `int_*.toml`, `float_*.toml`, `string_*.toml`
 - Complex structures: `array_*.toml`, `table_*.toml`, `inline_table_*.toml`
 - Edge cases: `hard_example.toml`, `duplicate_*.toml`
