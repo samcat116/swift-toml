@@ -1,0 +1,23 @@
+README.md
+  s_2714c6839d900b::t_744f19caf6963e 64,67-69
+Sources/Toml/Toml.swift
+  s_2714c6839d900b::t_7f49aa38cdaaa3 476-483,486,489-490,494-509
+Tests/TomlTests/RegressionTests.swift
+  s_2714c6839d900b::t_fcf710b0079ee1 157-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "95c920b978950a673c2fe4bf64b490b5158174dc",
+  "prompts": {},
+  "sessions": {
+    "s_2714c6839d900b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "51ff5424-fc4a-4563-985f-4f7ceb370aa0",
+        "model": "unknown"
+      },
+      "human_author": "Sam Schmitt <sam@samschmitt.com>"
+    }
+  }
+}
