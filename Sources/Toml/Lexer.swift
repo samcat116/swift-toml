@@ -14,58 +14,71 @@
  * limitations under the License.
  */
 
-import Foundation
-
 /**
     Convert an input string of TOML to a stream of tokens
 */
-class Lexer {
+struct Lexer {
     let input: String
-    var grammar: [String: [Evaluator]]
+    let grammar: [String: [Evaluator]]
 
-    init(input: String, grammar: [String: [Evaluator]]) {
+    init(input: String, grammar: [String: [Evaluator]] = Grammar.shared.grammar) {
         self.input = input
         self.grammar = grammar
     }
 
-    func tokenize() throws -> [Token] {
+    func tokenize() throws(TomlError) -> [Token] {
         var tokens = [Token]()
-        var content = input
-        var stack = [String]()
+        var stack = ["root"]
 
-        stack.append("root")
+        // The scan walks a cursor forward through `input` rather than
+        // re-slicing a `String` copy of the remaining text on every token.
+        // The latter is quadratic: each token copies the whole rest of the
+        // document.
+        var cursor = input.startIndex
 
-        while content.count > 0 {
+        while cursor < input.endIndex {
+            guard let state = stack.last, let evaluators = grammar[state] else {
+                throw TomlError.syntaxError("Unknown lexer state: \(stack.last ?? "<empty>")")
+            }
+
             var matched = false
-
-            // check content against evaluators to produce tokens
-            for evaluator in grammar[stack.last!]! {
-                if let e = try evaluator.evaluate(content) {
-                    if let t = e.token {
-                        tokens.append(t)
-                    }
-
-                    // should we pop the stack?
-                    if evaluator.pop {
-                        stack.removeLast()
-                    }
-
-                    // should we push onto the stack?
-                    if let pushItmes = evaluator.push {
-                        stack = stack + pushItmes
-                    }
-                    
-                    content = String(content[e.index...])
-                    matched = true
-                    break
+            for evaluator in evaluators {
+                guard let (token, next) = try evaluator.evaluate(input[cursor...]) else {
+                    continue
                 }
+
+                if let token {
+                    tokens.append(token)
+                }
+
+                if evaluator.pop {
+                    guard !stack.isEmpty else {
+                        throw TomlError.syntaxError("Unbalanced \(state) at: \(input[cursor...])")
+                    }
+                    stack.removeLast()
+                }
+
+                if let push = evaluator.push {
+                    stack.append(contentsOf: push)
+                }
+
+                // A zero-length match that also leaves the state stack alone
+                // makes no progress and would spin forever. Treat it as a
+                // syntax error rather than hanging on malformed input.
+                if next == cursor && !evaluator.pop && evaluator.push == nil {
+                    throw TomlError.syntaxError("Made no progress at: \(input[cursor...])")
+                }
+
+                cursor = next
+                matched = true
+                break
             }
 
             if !matched {
-                throw TomlError.SyntaxError(content)
+                throw TomlError.syntaxError(String(input[cursor...]))
             }
         }
+
         return tokens
     }
-    
 }

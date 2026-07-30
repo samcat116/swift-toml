@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Build**: `swift build`
 - **Run all tests**: `swift test`
 - **Run specific test**: `swift test --filter TestName`
-- **Swift Version**: 6.0+ (language mode enabled)
+- **Swift Version**: 6.3+ (v6 language mode enabled), minimum platform macOS/iOS 26
 
 ## Architecture Overview
 
@@ -38,5 +38,4 @@ Test functions use `@Test("descriptive name")` annotations and `#expect()` asser
 
 ## Known Issues
 
-- One failing test related to floating-point precision in serialization
-- This doesn't affect core parsing functionality
+- None currently; the full suite passes.

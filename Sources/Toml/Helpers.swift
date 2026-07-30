@@ -16,14 +16,14 @@
 
 import Foundation
 
-class ArrayWrapper: SetValueProtocol {
+final class ArrayWrapper: SetValueProtocol {
     var array: [Any]
 
     init(array: [Any]) {
         self.array = array
     }
 
-    public func set(value: Any, for: [String]) {
+    func set(value: Any, for: [String]) {
         array.append(value)
     }
 }
@@ -31,49 +31,50 @@ class ArrayWrapper: SetValueProtocol {
 /**
     Utility function to cast an array to a given type or throw an error
 
-    - Parameter array: Input array to cast to type T
+    - Parameter check: Input array to cast to type T
+    - Parameter key: Key path the array will be stored at
     - Parameter out: Array to store result in
 
-    - Throws: `TomlError.MixedArrayType` if array cannot be cast to appropriate type
+    - Throws: `TomlError.mixedArrayType` if array cannot be cast to appropriate type
 */
-func checkAndSetArray<T: SetValueProtocol>(check: [Any], key: [String], out: inout T) throws {
+func checkAndSetArray<T: SetValueProtocol>(check: [Any], key: [String], out: inout T) throws(TomlError) {
     // allow empty arrays
-    if check.isEmpty {
+    guard let first = check.first else {
         out.set(value: check, for: key)
         return
     }
 
     // convert array to proper type
-    switch check[0] {
+    switch first {
         case is Int:
             if let typedArray = check as? [Int] {
                 out.set(value: typedArray, for: key)
             } else {
-                throw TomlError.MixedArrayType("Int")
+                throw TomlError.mixedArrayType("Int")
             }
         case is Double:
             if let typedArray = check as? [Double] {
                 out.set(value: typedArray, for: key)
             } else {
-                throw TomlError.MixedArrayType("Double")
+                throw TomlError.mixedArrayType("Double")
             }
         case is String:
             if let typedArray = check as? [String] {
                 out.set(value: typedArray, for: key)
             } else {
-                throw TomlError.MixedArrayType("String")
+                throw TomlError.mixedArrayType("String")
             }
         case is Bool:
             if let typedArray = check as? [Bool] {
                 out.set(value: typedArray, for: key)
             } else {
-                throw TomlError.MixedArrayType("Bool")
+                throw TomlError.mixedArrayType("Bool")
             }
         case is Date:
             if let typedArray = check as? [Date] {
                 out.set(value: typedArray, for: key)
             } else {
-                throw TomlError.MixedArrayType("Date")
+                throw TomlError.mixedArrayType("Date")
             }
         default:
             // array of arrays leave as any
@@ -82,18 +83,24 @@ func checkAndSetArray<T: SetValueProtocol>(check: [Any], key: [String], out: ino
 }
 
 /**
-    Utility for trimming string identifiers in key/value pairs
+    Strip the surrounding quotes and the trailing `=` from a quoted key.
+
+    - Parameter input: The matched key text, e.g. `"my key" =`
+    - Parameter quote: The quote character used, `"` or `'`
 */
-func trimStringIdentifier(_ input: String, _ quote: String = "\"") -> String {
-    let pattern = quote + "(.+)" + quote + "[ \t]*="
-    let regex = try! NSRegularExpression(pattern: pattern, options: [])
-    let matches = regex.matches(in: input, options: [],
-        range: NSMakeRange(0, input.utf16.count))
-    let nss = NSString(string: input)
-    return nss.substring(with: matches[0].range(at: 1))
+func trimStringIdentifier(_ input: Substring, _ quote: Character = "\"") -> String {
+    // The lexer only produces this text by matching a quoted key followed by
+    // `=`, so the quotes are guaranteed to be present. Locating them directly
+    // avoids running a second regex over the input just to find them.
+    guard let open = input.firstIndex(of: quote),
+          let close = input.lastIndex(of: quote),
+          open < close else {
+        return String(input)
+    }
+    return String(input[input.index(after: open)..<close])
 }
 
-func getKeyPathFromTable(tokens: [Token]) -> [String] {
+func getKeyPathFromTable(tokens: ArraySlice<Token>) -> [String] {
     var subKeyPath = [String]()
     subKeyPathLoop: for token in tokens {
         switch token {
@@ -109,11 +116,9 @@ func getKeyPathFromTable(tokens: [Token]) -> [String] {
     return subKeyPath
 }
 
-func consumeTableIdentifierTokens(tableTokens: inout [Token], tokens: inout [Token]) {
-    while !tokens.isEmpty {
-        let nestedToken = tokens[0]
+func consumeTableIdentifierTokens(tableTokens: inout [Token], tokens: inout ArraySlice<Token>) {
+    while let nestedToken = tokens.popFirst() {
         tableTokens.append(nestedToken)
-        tokens.remove(at: 0)
         if case .TableEnd = nestedToken {
             break
         } else if case .TableArrayEnd = nestedToken {
@@ -122,11 +127,13 @@ func consumeTableIdentifierTokens(tableTokens: inout [Token], tokens: inout [Tok
     }
 }
 
-func getTableTokens(keyPath: [String], tokens: inout [Token]) -> [Token] {
-    var tableTokens = [Token]()
-    nestedTableLoop: while tokens.count > 0 {
-        let tableToken = tokens[0]
+func getTableTokens(keyPath: [String], tokens: inout ArraySlice<Token>) throws(TomlError) -> [Token] {
+    guard let root = keyPath.first else {
+        throw TomlError.syntaxError("Table name must not be blank")
+    }
 
+    var tableTokens = [Token]()
+    nestedTableLoop: while let tableToken = tokens.first {
         // need to include sub tables
         switch tableToken {
             case .TableBegin, .TableArrayBegin:
@@ -135,12 +142,16 @@ func getTableTokens(keyPath: [String], tokens: inout [Token]) -> [Token] {
 
                 // If the new table is nested within the current one
                 // include it, otherwise we are finished.
-                if subKeyPath.count == 1 {
-                    // top-level - break
+                //
+                // An empty sub key path means the declaration was truncated
+                // (for example a trailing "["); indexing it unconditionally
+                // used to trap.
+                guard let subRoot = subKeyPath.first, subKeyPath.count > 1 else {
+                    // top-level or incomplete - break
                     break nestedTableLoop
                 }
 
-                if subKeyPath[0] != keyPath[0] {
+                if subRoot != root {
                     // nested table but not part of this table group
                     break nestedTableLoop
                 }
@@ -149,16 +160,18 @@ func getTableTokens(keyPath: [String], tokens: inout [Token]) -> [Token] {
                 // nested table
 
                 // .TableBegin || .TableArrayBegin
-                tokens.remove(at: 0)
+                tokens.removeFirst()
                 tableTokens.append(tableToken)
 
-                // skip first name
-                tokens.remove(at: 0) // Identifier
-                tokens.remove(at: 0) // .TableSep
+                // skip first name: the Identifier and the .TableSep that
+                // follows it. Malformed input can end the stream early, so
+                // these are dropped rather than unconditionally removed.
+                _ = tokens.popFirst() // Identifier
+                _ = tokens.popFirst() // .TableSep
 
                 consumeTableIdentifierTokens(tableTokens: &tableTokens, tokens: &tokens)
             default:
-                tokens.remove(at: 0)
+                tokens.removeFirst()
                 tableTokens.append(tableToken)
         }
     }
@@ -166,29 +179,44 @@ func getTableTokens(keyPath: [String], tokens: inout [Token]) -> [Token] {
     return tableTokens
 }
 
-func extractTableTokens(tokens: inout [Token], inline: Bool = false) -> [Token] {
+/**
+    Extract the tokens belonging to a single table from the stream.
+
+    - Parameter tokens: Remaining tokens, consumed in place
+    - Parameter inline: Whether this is an inline (brace-delimited) table
+*/
+func extractTableTokens(tokens: inout ArraySlice<Token>, inline: Bool = false) -> [Token] {
     var tableTokens = [Token]()
-    while !tokens.isEmpty {
-        let tableToken = tokens[0]
 
-        if inline {
-            tokens.remove(at: 0)
-        }
-
-        if case .InlineTableEnd = tableToken {
-            if inline {
-                break
+    if inline {
+        // Inline tables nest, so the extent of this one runs to its *matching*
+        // closing brace. Stopping at the first `InlineTableEnd` left the extra
+        // closing braces of a nested table such as `a = {b = {c = 1}}` in the
+        // stream, where the top-level parse loop then met a token it had no
+        // handler for and trapped.
+        var depth = 1
+        while let tableToken = tokens.popFirst() {
+            if case .InlineTableBegin = tableToken {
+                depth += 1
+            } else if case .InlineTableEnd = tableToken {
+                depth -= 1
+                if depth == 0 {
+                    break
+                }
             }
-        } else if case .TableBegin = tableToken {
+            tableTokens.append(tableToken)
+        }
+        return tableTokens
+    }
+
+    while let tableToken = tokens.first {
+        if case .TableBegin = tableToken {
             break
         } else if case .TableArrayBegin = tableToken {
             break
         }
 
-        if !inline {
-            tokens.remove(at: 0)
-        }
-
+        tokens.removeFirst()
         tableTokens.append(tableToken)
     }
 

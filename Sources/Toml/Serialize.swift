@@ -20,9 +20,7 @@ import Foundation
     Get list of top level keys and optionally sort
 */
 private func filterKeys(keys: Set<Path>) -> [String] {
-    var myKeys = keys.filter({ $0.components.count == 1}).map({ $0.components.first! })
-    myKeys.sort()
-    return myKeys
+    keys.compactMap { $0.components.count == 1 ? $0.components[0] : nil }.sorted()
 }
 
 /**
@@ -38,7 +36,8 @@ private func serializeKeys(toml: Toml) -> [String] {
     let myKeys = filterKeys(keys: toml.keyNames)
 
     for key in myKeys {
-        result.append("\(quoted(key)) = \(toml.valueDescription([key])!)")
+        guard let value = toml.valueDescription([key]) else { continue }
+        result.append("\(quoted(key)) = \(value)")
     }
 
     return result
@@ -54,7 +53,7 @@ private func serializeTable(toml: Toml) -> [String] {
     let tableNames = filterKeys(keys: toml.tableNames)
 
     for tableName in tableNames {
-        let table = toml.table(tableName)!
+        let table = toml.table(from: [tableName])
 
         // get table title
         var titleParts = [tableName]

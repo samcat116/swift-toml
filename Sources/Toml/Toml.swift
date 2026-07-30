@@ -19,22 +19,43 @@ import Foundation
 /**
     Error thrown when a TOML syntax error is encountered
 
-    - DuplicateKey: Document contains a duplicate key
-    - InvalidDateFormat: Date string is not a supported format
-    - InvalidEscapeSequence: Unsupported escape sequence used in string
-    - InvalidUnicodeCharacter: Non-existant unicode character specified
-    - MixedArrayType: Array is composed of multiple types, members must all be the same type
-    - SyntaxError: Document cannot be parsed due to a syntax error
-    - InvalidNumberFormat: Number string is not a valid format
+    - duplicateKey: Document contains a duplicate key
+    - invalidDateFormat: Date string is not a supported format
+    - invalidEscapeSequence: Unsupported escape sequence used in string
+    - invalidUnicodeCharacter: Non-existent unicode character specified
+    - mixedArrayType: Array is composed of multiple types, members must all be the same type
+    - syntaxError: Document cannot be parsed due to a syntax error
+    - invalidNumberFormat: Number string is not a valid format
 */
-public enum TomlError: Error {
-    case DuplicateKey(String)
-    case InvalidDateFormat(String)
-    case InvalidEscapeSequence(String)
-    case InvalidUnicodeCharacter(Int)
-    case MixedArrayType(String)
-    case SyntaxError(String)
-    case InvalidNumberFormat(String)
+public enum TomlError: Error, Hashable, Sendable {
+    case duplicateKey(String)
+    case invalidDateFormat(String)
+    case invalidEscapeSequence(String)
+    case invalidUnicodeCharacter(Int)
+    case mixedArrayType(String)
+    case syntaxError(String)
+    case invalidNumberFormat(String)
+}
+
+extension TomlError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .duplicateKey(let key):
+            "duplicate key: \(key)"
+        case .invalidDateFormat(let date):
+            "invalid date format: \(date)"
+        case .invalidEscapeSequence(let sequence):
+            "invalid escape sequence: \(sequence)"
+        case .invalidUnicodeCharacter(let code):
+            "invalid unicode character: U+\(String(code, radix: 16, uppercase: true))"
+        case .mixedArrayType(let type):
+            "array members must all be of type \(type)"
+        case .syntaxError(let detail):
+            "syntax error: \(detail)"
+        case .invalidNumberFormat(let number):
+            "invalid number format: \(number)"
+        }
+    }
 }
 
 protocol SetValueProtocol {
@@ -62,7 +83,7 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
         - Parameter contentsOfFile: Path of file to read
         - Parameter encoding: Encoding of file
 
-        - Throws: `TomlError.SyntaxError` if the file is invalid
+        - Throws: `TomlError.syntaxError` if the file is invalid
         - Throws: `NSError` if the file does not exist
 
         - Returns: A dictionary with parsed results
@@ -71,7 +92,7 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
         encoding: String.Encoding = String.Encoding.utf8) throws {
         self.init()
         let source = try String(contentsOfFile: path, encoding: encoding)
-        let parser = Parser(toml: self)
+        var parser = Parser(toml: self)
         try parser.parse(string: source)
     }
 
@@ -80,13 +101,13 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
 
         - Parameter withString: A string with TOML document
 
-        - Throws: `TomlError.SyntaxError` if the file is invalid
+        - Throws: `TomlError.syntaxError` if the file is invalid
 
         - Returns: A dictionary with parsed results
     */
-    public convenience init(withString string: String) throws {
+    public convenience init(withString string: String) throws(TomlError) {
         self.init()
-        let parser = Parser(toml: self)
+        var parser = Parser(toml: self)
         try parser.parse(string: string)
     }
 
@@ -482,7 +503,7 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
 
         - Returns: value of key path
     */
-    public func value<T>(_ path: String...) throws -> T? {
+    public func value<T>(_ path: String...) -> T? {
         return value(path)
     }
 
