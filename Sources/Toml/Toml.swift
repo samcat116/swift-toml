@@ -23,7 +23,9 @@ import Foundation
     - invalidDateFormat: Date string is not a supported format
     - invalidEscapeSequence: Unsupported escape sequence used in string
     - invalidUnicodeCharacter: Non-existent unicode character specified
-    - mixedArrayType: Array is composed of multiple types, members must all be the same type
+    - mixedArrayType: No longer thrown. Arrays have been allowed to mix types
+                      since TOML 1.0; the case is kept so that code matching
+                      on it still compiles
     - syntaxError: Document cannot be parsed due to a syntax error
     - invalidNumberFormat: Number string is not a valid format
 */
@@ -269,7 +271,36 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
         - Returns: local date string of key path (e.g., "1979-05-27")
     */
     public func localDate(_ path: [String]) -> String? {
+        return localValue(path, kind: .localDate)
+    }
+
+    /**
+        Get a local date, time or date-time value from the specified key path.
+
+        - Parameter path: Key path of value
+
+        - Returns: the value of key path, if it is a local date/time
+    */
+    public func tomlDate(_ path: [String]) -> TomlDate? {
         return value(path)
+    }
+
+    /**
+        Get a local date, time or date-time value from the specified key path.
+
+        - Parameter path: Key path of value
+
+        - Returns: the value of key path, if it is a local date/time
+    */
+    public func tomlDate(_ path: String...) -> TomlDate? {
+        return value(path)
+    }
+
+    private func localValue(_ path: [String], kind: TomlDate.Kind) -> String? {
+        guard let local: TomlDate = value(path), local.kind == kind else {
+            return nil
+        }
+        return local.text
     }
     
     /**
@@ -280,7 +311,7 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
         - Returns: local date string of key path (e.g., "1979-05-27")
     */
     public func localDate(_ path: String...) -> String? {
-        return value(path)
+        return localValue(path, kind: .localDate)
     }
     
     /**
@@ -291,7 +322,7 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
         - Returns: local time string of key path (e.g., "07:32:00")
     */
     public func localTime(_ path: [String]) -> String? {
-        return value(path)
+        return localValue(path, kind: .localTime)
     }
     
     /**
@@ -302,7 +333,7 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
         - Returns: local time string of key path (e.g., "07:32:00")
     */
     public func localTime(_ path: String...) -> String? {
-        return value(path)
+        return localValue(path, kind: .localTime)
     }
     
     /**
@@ -313,7 +344,7 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
         - Returns: local date-time string of key path (e.g., "1979-05-27T07:32:00")
     */
     public func localDateTime(_ path: [String]) -> String? {
-        return value(path)
+        return localValue(path, kind: .localDateTime)
     }
     
     /**
@@ -324,7 +355,7 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
         - Returns: local date-time string of key path (e.g., "1979-05-27T07:32:00")
     */
     public func localDateTime(_ path: String...) -> String? {
-        return value(path)
+        return localValue(path, kind: .localDateTime)
     }
 
     /**
@@ -559,6 +590,9 @@ public class Toml: CustomStringConvertible, SetValueProtocol {
                 return String(describing: boolVal)
             } else if let dateVal = check as? Date {
                 return dateVal.rfc3339String()
+            } else if let localVal = check as? TomlDate {
+                // A local date/time is written bare, not quoted.
+                return localVal.text
             } else if let tableArray = check as? [Toml] {
                 return serializeArrayOfTables(tables: tableArray)
             }

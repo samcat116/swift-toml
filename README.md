@@ -7,7 +7,9 @@ SwiftToml is a TOML parser written in the swift language.  TOML is an intuitive
 configuration file format that is designed to be easy for humans to read and
 computers to parse.
 
-SwiftToml currently parses files that conform to **version 1.0.0** of the TOML spec.
+SwiftToml parses files that conform to **version 1.1.0** of the TOML spec, and
+passes the whole [toml-test](https://github.com/toml-lang/toml-test) suite for
+it: 189 valid documents and 362 invalid ones.
 
 For full details of writing TOML files see the [TOML documentation](https://github.com/toml-lang/toml).
 
@@ -73,10 +75,13 @@ for (tablePath, table) in toml.tables() { ... }
 // iterate over all tables under table1
 for (tablePath, table) in toml.tables("table1") { ... }
 
-// access local date/time values (TOML v1.0)
+// access local date/time values
 let localDate = toml.localDate("birthday")      // "1979-05-27"
 let localTime = toml.localTime("start_time")    // "07:32:00"
 let localDateTime = toml.localDateTime("created") // "1979-05-27T07:32:00"
+
+// ... or as a value that knows which of the three it is
+let birthday = toml.tomlDate("birthday")        // TomlDate(kind: .localDate, text: "1979-05-27")
 
 // dotted keys access nested values directly
 let config = toml.string("database", "host")    // equivalent to [database] host = "..."
@@ -93,7 +98,7 @@ Add the project to  to your Package.swift file as a dependency:
 
 ## Compatibility
 
-SwiftToml is compatible with Swift 6.3+ and TOML 1.0.0, and requires
+SwiftToml is compatible with Swift 6.3+ and TOML 1.1.0, and requires
 macOS 26 / iOS 26 / tvOS 26 / watchOS 26 or later.
 
 Errors are reported through `TomlError`, whose cases use lowerCamelCase
@@ -101,23 +106,40 @@ Errors are reported through `TomlError`, whose cases use lowerCamelCase
 declares `throws(TomlError)`, so a `catch` binds the concrete error type
 without a cast.
 
-It has been tested with Swift 6.4 on macOS and supports all major TOML v1.0 features including:
+### TOML 1.1.0 features
 
-### TOML v1.0 Features
+- **Multi-line inline tables**: newlines, comments and a trailing comma inside `{ ... }`
+- **Hex escapes**: `\x41` for code points up to U+00FF
+- **Escape character**: `\e`
+- **Optional seconds**: `14:15` and `2010-02-03 14:15` as well as `14:15:00`
+
+### TOML 1.0.0 features
 
 - **Integer formats**: Hexadecimal (`0xDEAD`), octal (`0o755`), binary (`0b1010`)
 - **Number separators**: Underscores in numbers (`1_000_000`, `3.141_592`)
 - **Special float values**: Infinity (`inf`, `-inf`) and NaN (`nan`)
 - **Date and time types**: Local dates (`1979-05-27`), local times (`07:32:00`), local date-times (`1979-05-27T07:32:00`)
-- **Dotted keys**: Nested key syntax (`site.owner.name = "value"`)
-- **Enhanced escape sequences**: ESC character (`\e`) and hex escapes (`\x41`)
-- **Offset date-times**: RFC 3339 compliant timestamps with timezone support 
+- **Dotted keys**: Nested key syntax (`site.owner.name = "value"`), including quoted parts (`a."b.c".d`)
+- **Offset date-times**: RFC 3339 timestamps, with `T`, `t` or a space before the time
+- **Mixed-type arrays**: `[ 0.1, 1, "two" ]`
 
 ## Tests
 
 To run the unit tests checkout the repository and type:
 
     swift test
+
+To run the [toml-test](https://github.com/toml-lang/toml-test) conformance
+suite, which checks the parser against every document the specification has an
+opinion about:
+
+    Scripts/toml-test.sh          # TOML 1.1.0
+    Scripts/toml-test.sh 1.0.0    # TOML 1.0.0
+
+Both pass in full. The 1.0.0 run skips the nine documents that 1.1.0 made
+legal — a 1.1.0 parser is supposed to accept those, and the 1.0.0 suite lists
+them as documents to reject. The suite needs Go, which is used only to build
+its runner; `Sources/TomlTestDecoder` is the adapter it drives.
 
 ## License
 

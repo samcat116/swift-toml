@@ -18,13 +18,22 @@ import Foundation
 
 // MARK: Parse
 
-/// Matches a bare dotted key, optionally with whitespace around the dots.
-private let bareDottedKeyPattern = Pattern("[a-zA-Z0-9_-]+([ \t]*\\.[ \t]*[a-zA-Z0-9_-]+)*$")
-
 struct Parser {
     var keyPath: [String] = []
     var currentKey = "."
     var declaredTables = Set<Path>()
+    /// Tables brought into being by a dotted key, such as `a` in `a.b = 1`.
+    /// A later `[a]` header may not reopen one of these.
+    var dottedKeyTables = Set<Path>()
+    /// Tables written as `{ ... }`. These are closed for good: nothing may
+    /// add a key to one, whether by header or by dotted key.
+    var inlineTables = Set<Path>()
+    /// Paths that hold an array of tables, and so may be appended to by a
+    /// further `[[...]]` -- unlike a path that holds an ordinary array.
+    var tableArrays = Set<Path>()
+    /// Tables that exist only because something below them was named, as
+    /// `albums` does after `[[albums.songs]]`.
+    var implicitTables = Set<Path>()
     var toml: Toml = Toml()
 
     // MARK: Initializers
@@ -45,67 +54,6 @@ struct Parser {
     }
 
     /**
-        Parse a dotted key into its components, handling quoted sections
-
-        - Parameter key: The dotted key string (e.g., "a.b.c" or "a.'b.c'.d")
-        - Returns: Array of key components
-    */
-    private func parseDottedKey(_ key: String) -> [String] {
-        // A key that is not a bare dotted key came from a quoted key, whose
-        // dots are part of the name rather than separators.
-        guard bareDottedKeyPattern.prefixMatch(in: key[...]) != nil else {
-            return [key]
-        }
-
-        var components: [String] = []
-        var current = ""
-        var inQuotes = false
-        var quoteChar: Character?
-        var escaped = false
-
-        func appendCurrent() {
-            let trimmed = current.trim()
-            guard !trimmed.isEmpty else { return }
-            // Remove quotes if the entire component is quoted
-            if (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) ||
-               (trimmed.hasPrefix("'") && trimmed.hasSuffix("'")),
-               trimmed.count >= 2 {
-                components.append(String(trimmed.dropFirst().dropLast()))
-            } else {
-                components.append(trimmed)
-            }
-        }
-
-        for char in key {
-            if escaped {
-                current.append(char)
-                escaped = false
-            } else if char == "\\" && inQuotes {
-                current.append(char)
-                escaped = true
-            } else if (char == "\"" || char == "'") && !inQuotes {
-                // Starting a quoted section
-                inQuotes = true
-                quoteChar = char
-            } else if char == quoteChar && inQuotes {
-                // Ending a quoted section
-                inQuotes = false
-                quoteChar = nil
-            } else if char == "." && !inQuotes {
-                // Found a dot separator outside quotes
-                appendCurrent()
-                current = ""
-            } else {
-                current.append(char)
-            }
-        }
-
-        appendCurrent()
-
-        return components.isEmpty ? [key] : components
-    }
-
-    /**
         Parse a TOML token stream construct a dictionary.
 
         - Parameter tokens: Token stream describing a TOML data structure
@@ -115,9 +63,7 @@ struct Parser {
         var myTokens = tokens[...]
 
         while let token = myTokens.popFirst() {
-            if case .Key(let val) = token {
-                // Handle dotted keys by parsing them into components
-                let keyComponents = parseDottedKey(val)
+            if case .Key(let keyComponents) = token {
                 if keyComponents.count > 1 {
                     // For dotted keys, we need to set up the key path
                     currentKey = keyComponents[keyComponents.count - 1]
@@ -125,6 +71,20 @@ struct Parser {
                     var currentPath = keyPath  // Start with current table context
                     for component in keyComponents.dropLast() {
                         currentPath.append(component)
+
+                        // Each name before the last must be a table this key
+                        // may define or extend, which it is not if it already
+                        // holds a value (`a = 1` then `a.b = 2`), if it holds
+                        // an inline table, which is closed, or if a header
+                        // defined it -- `[a.b.c]` followed by `[a]` and
+                        // `b.c.t = 1` reaches back into a finished table.
+                        if toml.hasKey(key: currentPath, includeTables: false)
+                            || inlineTables.contains(Path(currentPath))
+                            || declaredTables.contains(Path(currentPath)) {
+                            throw TomlError.duplicateKey(String(describing: currentPath))
+                        }
+
+                        dottedKeyTables.insert(Path(currentPath))
                         if !toml.hasTable(currentPath) {
                             toml.setTable(key: currentPath)
                         }
@@ -140,8 +100,8 @@ struct Parser {
 
                     // Restore the keyPath
                     keyPath = savedKeyPath
-                } else {
-                    currentKey = val
+                } else if let only = keyComponents.first {
+                    currentKey = only
                 }
             } else {
                 try dispatch(token, &myTokens)
@@ -175,7 +135,8 @@ struct Parser {
         case .Key:
             // Handled by the caller.
             throw TomlError.syntaxError("Unexpected key: \(token)")
-        case .ArrayEnd, .TableArrayEnd, .InlineTableEnd, .TableEnd, .TableSep, .Comment:
+        case .ArrayEnd, .TableArrayEnd, .InlineTableEnd, .TableEnd, .TableSep,
+             .Comment, .Comma:
             throw TomlError.syntaxError("Unexpected token: \(token)")
         }
     }
@@ -189,8 +150,30 @@ struct Parser {
     */
     private mutating func parse(tokens: inout ArraySlice<Token>) throws(TomlError) -> [Any] {
         var array: [Any] = [Any]()
+        // Values are separated by exactly one comma, with an optional one
+        // after the last. This tracks whether the next token may be a value:
+        // it may not be right after another value (`[1 2]`), and a comma may
+        // not appear where a value is due (`[,]`, `[1,,2]`).
+        var expectValue = true
 
         while let token = tokens.popFirst() {
+            if case .Comma = token {
+                guard !expectValue else {
+                    throw TomlError.syntaxError("Unexpected ',' in array")
+                }
+                expectValue = true
+                continue
+            }
+
+            if case .ArrayEnd = token {
+                return array
+            }
+
+            guard expectValue else {
+                throw TomlError.syntaxError("Array values must be separated by ','")
+            }
+            expectValue = false
+
             switch token {
                 case .Identifier(let val):
                     array.append(val)
@@ -202,17 +185,16 @@ struct Parser {
                     array.append(val)
                 case .DateTime(let val):
                     array.append(val)
-                case .LocalDate(let val):
-                    array.append(val)
-                case .LocalTime(let val):
-                    array.append(val)
-                case .LocalDateTime(let val):
-                    array.append(val)
+                case .LocalDate, .LocalTime, .LocalDateTime:
+                    // Carried as `TomlDate`, which the token knows how to build.
+                    if let val = token.value {
+                        array.append(val)
+                    }
                 case .InlineTableBegin:
                     array.append(try processInlineTable(tokens: &tokens))
                 case .ArrayBegin:
                     var wrap = ArrayWrapper(array: array)
-                    try checkAndSetArray(check: parse(tokens: &tokens), key: [""], out: &wrap)
+                    checkAndSetArray(check: try parse(tokens: &tokens), key: [""], out: &wrap)
                     array = wrap.array
                 default:
                     return array
@@ -225,7 +207,7 @@ struct Parser {
     private func processInlineTable(tokens: inout ArraySlice<Token>) throws(TomlError) -> Toml {
         let tableTokens = extractTableTokens(tokens: &tokens, inline: true)
         var tableParser = Parser()
-        try tableParser.parse(tokens: tableTokens)
+        try tableParser.parse(tokens: try inlineTableEntryTokens(tableTokens))
         return tableParser.toml
     }
 
@@ -254,6 +236,12 @@ struct Parser {
     private mutating func setTable(tokens: inout ArraySlice<Token>) throws(TomlError) {
         var tableExists = false
         var emptyTableSep = false
+        // Whitespace inside the brackets is allowed around the parts of the
+        // name but not between two of them: `[ a . b ]` names `a.b`, while
+        // `[a b]` is an error. The lexer discards the whitespace, so the
+        // missing separator is caught here, by the two names arriving in a
+        // row.
+        var sawIdentifier = false
         // clear out the keyPath
         keyPath.removeAll()
 
@@ -268,6 +256,28 @@ struct Parser {
                     throw TomlError.duplicateKey(String(describing: keyPath))
                 }
 
+                // A table that a dotted key already defined is closed to a
+                // header, and an inline table -- or anything inside one -- is
+                // closed to everything.
+                if dottedKeyTables.contains(path) {
+                    throw TomlError.duplicateKey(String(describing: keyPath))
+                }
+                for depth in 1...keyPath.count where inlineTables.contains(Path(Array(keyPath.prefix(depth)))) {
+                    throw TomlError.duplicateKey(String(describing: keyPath))
+                }
+
+                // Nor may a table be opened underneath a key that holds a
+                // value: `a = 1` leaves nowhere for `[a.b]` to go. An array
+                // of tables is the exception -- `[[a]]` then `[a.b]` adds a
+                // sub-table to its most recent element.
+                for depth in 1..<keyPath.count {
+                    let prefix = Array(keyPath.prefix(depth))
+                    if toml.hasKey(key: prefix, includeTables: false),
+                       !tableArrays.contains(Path(prefix)) {
+                        throw TomlError.duplicateKey(String(describing: prefix))
+                    }
+                }
+
                 declaredTables.insert(path)
                 let tableTokens = extractTableTokens(tokens: &tokens)
                 try parse(tokens: tableTokens)
@@ -278,8 +288,13 @@ struct Parser {
                     throw TomlError.syntaxError("Must not have un-named implicit tables")
                 }
                 emptyTableSep = true
+                sawIdentifier = false
             } else if case .Identifier(let val) = subToken {
+                guard !sawIdentifier else {
+                    throw TomlError.syntaxError("Table name parts must be separated by '.'")
+                }
                 emptyTableSep = false
+                sawIdentifier = true
                 keyPath.append(val)
                 toml.setTable(key: keyPath)
             }
@@ -295,6 +310,8 @@ struct Parser {
         keyPath.removeAll()
 
         var sawEnd = false
+        // As in `setTable`: two names in a row mean a separator is missing.
+        var sawIdentifier = false
 
         tableLoop: while let subToken = tokens.popFirst() {
             if case .TableArrayEnd = subToken {
@@ -307,8 +324,24 @@ struct Parser {
                 var tableParser = Parser()
                 try tableParser.parse(tokens: tableTokens)
 
+                let path = Path(keyPath)
+
+                // `[[albums.songs]]` makes `albums` a table, and a table is
+                // not an array of tables: a later `[[albums]]` has nothing to
+                // append to.
+                if implicitTables.contains(path), !tableArrays.contains(path) {
+                    throw TomlError.duplicateKey(String(describing: keyPath))
+                }
+                for depth in 1..<keyPath.count {
+                    implicitTables.insert(Path(Array(keyPath.prefix(depth))))
+                }
+
                 if toml.hasKey(key: keyPath) {
-                    guard var arr: [Toml] = toml.array(keyPath) else {
+                    // Only an array that previous `[[...]]` headers built may
+                    // be appended to. `fruit = []` followed by `[[fruit]]` is
+                    // an error, though an empty `[Any]` casts to `[Toml]`
+                    // happily enough to hide it.
+                    guard tableArrays.contains(path), var arr: [Toml] = toml.array(keyPath) else {
                         throw TomlError.duplicateKey(String(describing: keyPath))
                     }
                     arr.append(tableParser.toml)
@@ -316,9 +349,16 @@ struct Parser {
                 } else {
                     toml.set(value: [tableParser.toml], for: keyPath)
                 }
+                tableArrays.insert(path)
                 sawEnd = true
                 break tableLoop
+            } else if case .TableSep = subToken {
+                sawIdentifier = false
             } else if case .Identifier(let val) = subToken {
+                guard !sawIdentifier else {
+                    throw TomlError.syntaxError("Table name parts must be separated by '.'")
+                }
+                sawIdentifier = true
                 keyPath.append(val)
             }
         }
@@ -339,10 +379,18 @@ struct Parser {
     private mutating func setInlineTable(tokens: inout ArraySlice<Token>) throws(TomlError) {
         keyPath.append(currentKey)
 
+        // An inline table defines its key outright, so the key must be free:
+        // `a.b = 0` followed by `a = {}` replaces a table that already
+        // exists, which is not allowed.
+        if toml.hasKey(key: keyPath) {
+            throw TomlError.duplicateKey(String(describing: keyPath))
+        }
+
         let tableTokens = extractTableTokens(tokens: &tokens, inline: true)
-        try parse(tokens: tableTokens)
+        try parse(tokens: try inlineTableEntryTokens(tableTokens))
 
         toml.setTable(key: keyPath)
+        inlineTables.insert(Path(keyPath))
 
         // This was an inline table so remove from keyPath
         keyPath.removeLast()
@@ -365,6 +413,6 @@ struct Parser {
             return
         }
 
-        try checkAndSetArray(check: arr, key: myKeyPath, out: &toml)
+        checkAndSetArray(check: arr, key: myKeyPath, out: &toml)
     }
 }

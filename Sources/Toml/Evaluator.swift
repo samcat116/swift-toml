@@ -32,6 +32,24 @@ struct Evaluator: Sendable {
     }
 
     /**
+        Copy `other`, changing only whether it pops the state stack.
+
+        A value ends the `value` state but not the `array` state -- an array
+        stays open for the next element -- so the same value patterns are
+        needed with and without the pop. The compiled pattern is shared rather
+        than recompiled.
+    */
+    init(_ other: Evaluator, pop: Bool? = nil, pushingUnder state: String? = nil) {
+        self.pattern = other.pattern
+        self.generator = other.generator
+        // `state` goes *under* whatever this evaluator already pushes, so
+        // that a value which opens a nested state -- an array, a multi-line
+        // string -- returns to `state` when that state closes.
+        self.push = state.map { [$0] + (other.push ?? []) } ?? other.push
+        self.pop = pop ?? other.pop
+    }
+
+    /**
         Match this evaluator against the start of `content`.
 
         - Parameter content: Remaining input to match against

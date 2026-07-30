@@ -29,55 +29,41 @@ final class ArrayWrapper: SetValueProtocol {
 }
 
 /**
-    Utility function to cast an array to a given type or throw an error
+    Store an array, narrowing it to a homogeneous element type where it has
+    one.
 
-    - Parameter check: Input array to cast to type T
+    An array whose members are all `Int` is stored as `[Int]`, so that
+    `array("key") as [Int]?` succeeds. TOML has allowed arrays to mix types
+    since 1.0, so an array that does not narrow is stored as `[Any]` rather
+    than rejected -- this used to throw `mixedArrayType`, which made
+    `numbers = [ 0.1, 1 ]` from the specification a parse error.
+
+    - Parameter check: Input array to store
     - Parameter key: Key path the array will be stored at
-    - Parameter out: Array to store result in
-
-    - Throws: `TomlError.mixedArrayType` if array cannot be cast to appropriate type
+    - Parameter out: Destination to store the result in
 */
-func checkAndSetArray<T: SetValueProtocol>(check: [Any], key: [String], out: inout T) throws(TomlError) {
+func checkAndSetArray<T: SetValueProtocol>(check: [Any], key: [String], out: inout T) {
     // allow empty arrays
     guard let first = check.first else {
         out.set(value: check, for: key)
         return
     }
 
-    // convert array to proper type
     switch first {
         case is Int:
-            if let typedArray = check as? [Int] {
-                out.set(value: typedArray, for: key)
-            } else {
-                throw TomlError.mixedArrayType("Int")
-            }
+            out.set(value: (check as? [Int]).map { $0 as Any } ?? check, for: key)
         case is Double:
-            if let typedArray = check as? [Double] {
-                out.set(value: typedArray, for: key)
-            } else {
-                throw TomlError.mixedArrayType("Double")
-            }
+            out.set(value: (check as? [Double]).map { $0 as Any } ?? check, for: key)
         case is String:
-            if let typedArray = check as? [String] {
-                out.set(value: typedArray, for: key)
-            } else {
-                throw TomlError.mixedArrayType("String")
-            }
+            out.set(value: (check as? [String]).map { $0 as Any } ?? check, for: key)
         case is Bool:
-            if let typedArray = check as? [Bool] {
-                out.set(value: typedArray, for: key)
-            } else {
-                throw TomlError.mixedArrayType("Bool")
-            }
+            out.set(value: (check as? [Bool]).map { $0 as Any } ?? check, for: key)
         case is Date:
-            if let typedArray = check as? [Date] {
-                out.set(value: typedArray, for: key)
-            } else {
-                throw TomlError.mixedArrayType("Date")
-            }
+            out.set(value: (check as? [Date]).map { $0 as Any } ?? check, for: key)
+        case is TomlDate:
+            out.set(value: (check as? [TomlDate]).map { $0 as Any } ?? check, for: key)
         default:
-            // array of arrays leave as any
+            // array of arrays, or of tables: leave as any
             out.set(value: check, for: key)
     }
 }
@@ -98,6 +84,151 @@ func trimStringIdentifier(_ input: Substring, _ quote: Character = "\"") -> Stri
         return String(input)
     }
     return String(input[input.index(after: open)..<close])
+}
+
+/**
+    Split the text of a key declaration into its dotted components.
+
+    Quotes are stripped and escape sequences inside basic-string segments are
+    resolved, so the result is the sequence of names the key denotes. Doing
+    this here, while the quoting is still visible, is what lets `"a.b" = 1`
+    (one component) be told apart from `a."b" = 1` (two) -- once the quotes
+    are gone the two are indistinguishable.
+
+    - Parameter input: The matched key text, including the trailing `=`
+*/
+func splitDottedKey(_ input: Substring) throws(TomlError) -> [String] {
+    var chars = Array(input)
+    if chars.last == "=" {
+        chars.removeLast()
+    }
+
+    var components = [String]()
+    var index = 0
+    var expectSegment = true
+
+    while index < chars.count {
+        while index < chars.count, chars[index] == " " || chars[index] == "\t" {
+            index += 1
+        }
+        guard index < chars.count else { break }
+
+        let char = chars[index]
+
+        if char == "." {
+            guard !expectSegment else {
+                throw TomlError.syntaxError("Key has an empty component: \(input)")
+            }
+            expectSegment = true
+            index += 1
+            continue
+        }
+
+        guard expectSegment else {
+            throw TomlError.syntaxError("Key components must be separated by '.': \(input)")
+        }
+
+        if char == "\"" || char == "'" {
+            let quote = char
+            index += 1
+            var raw = ""
+            var closed = false
+
+            while index < chars.count {
+                let current = chars[index]
+                // Only basic strings have escapes; in a literal string a
+                // backslash is just a backslash.
+                if quote == "\"", current == "\\", index + 1 < chars.count {
+                    raw.append(current)
+                    raw.append(chars[index + 1])
+                    index += 2
+                    continue
+                }
+                if current == quote {
+                    closed = true
+                    index += 1
+                    break
+                }
+                raw.append(current)
+                index += 1
+            }
+
+            guard closed else {
+                throw TomlError.syntaxError("Unterminated quoted key: \(input)")
+            }
+            components.append(quote == "\"" ? try raw.replaceEscapeSequences() : raw)
+        } else {
+            var raw = ""
+            while index < chars.count, chars[index] != ".",
+                  chars[index] != " ", chars[index] != "\t" {
+                raw.append(chars[index])
+                index += 1
+            }
+            components.append(raw)
+        }
+
+        expectSegment = false
+    }
+
+    guard !components.isEmpty, !expectSegment else {
+        throw TomlError.syntaxError("Invalid key: \(input)")
+    }
+
+    return components
+}
+
+/**
+    Check that an inline table's entries are separated by commas, and return
+    the tokens with those commas removed.
+
+    Entries are separated by exactly one comma, and TOML 1.1.0 allows one
+    after the last entry. Commas belonging to a nested array or inline table
+    are that container's business, so only the outermost level is considered.
+
+    - Parameter tokens: The tokens between the braces
+*/
+func inlineTableEntryTokens(_ tokens: [Token]) throws(TomlError) -> [Token] {
+    var result = [Token]()
+    result.reserveCapacity(tokens.count)
+
+    var depth = 0
+    var expectKey = true
+
+    for token in tokens {
+        switch token {
+        case .ArrayBegin, .InlineTableBegin:
+            depth += 1
+        case .ArrayEnd, .InlineTableEnd:
+            depth -= 1
+        case .Comma where depth == 0:
+            guard !expectKey else {
+                throw TomlError.syntaxError("Unexpected ',' in inline table")
+            }
+            expectKey = true
+            continue  // the separator itself is not part of any entry
+        case .Key where depth == 0:
+            guard expectKey else {
+                throw TomlError.syntaxError("Inline table entries must be separated by ','")
+            }
+            expectKey = false
+        default:
+            break
+        }
+
+        result.append(token)
+    }
+
+    return result
+}
+
+/**
+    Drop the closing delimiter from a matched multi-line string.
+
+    The match ends in a run of three to five delimiter characters; exactly the
+    last three close the string, so everything before them is content.
+*/
+func multiLineStringBody(_ matched: Substring) -> String {
+    String(matched.dropLast(3))
 }
 
 func getKeyPathFromTable(tokens: ArraySlice<Token>) -> [String] {
@@ -128,7 +259,7 @@ func consumeTableIdentifierTokens(tableTokens: inout [Token], tokens: inout Arra
 }
 
 func getTableTokens(keyPath: [String], tokens: inout ArraySlice<Token>) throws(TomlError) -> [Token] {
-    guard let root = keyPath.first else {
+    guard !keyPath.isEmpty else {
         throw TomlError.syntaxError("Table name must not be blank")
     }
 
@@ -140,19 +271,18 @@ func getTableTokens(keyPath: [String], tokens: inout ArraySlice<Token>) throws(T
                 // get the key path of the new table
                 let subKeyPath = getKeyPathFromTable(tokens: tokens)
 
-                // If the new table is nested within the current one
-                // include it, otherwise we are finished.
+                // A table belongs to this one only if its name extends this
+                // one's: `[[a.b]]` followed by `[a.b.c]` nests, `[[a.b]]`
+                // followed by another `[[a.b]]` does not. Comparing only the
+                // first component made a repeated `[[a.b]]` look like a child
+                // of the element before it, so the second element was parsed
+                // into the first instead of appended beside it.
                 //
                 // An empty sub key path means the declaration was truncated
                 // (for example a trailing "["); indexing it unconditionally
                 // used to trap.
-                guard let subRoot = subKeyPath.first, subKeyPath.count > 1 else {
-                    // top-level or incomplete - break
-                    break nestedTableLoop
-                }
-
-                if subRoot != root {
-                    // nested table but not part of this table group
+                guard subKeyPath.count > keyPath.count,
+                      subKeyPath.starts(with: keyPath) else {
                     break nestedTableLoop
                 }
 
@@ -163,11 +293,14 @@ func getTableTokens(keyPath: [String], tokens: inout ArraySlice<Token>) throws(T
                 tokens.removeFirst()
                 tableTokens.append(tableToken)
 
-                // skip first name: the Identifier and the .TableSep that
-                // follows it. Malformed input can end the stream early, so
+                // Drop the part of the name this table already accounts for:
+                // its Identifier and the .TableSep after it, once per
+                // component. Malformed input can end the stream early, so
                 // these are dropped rather than unconditionally removed.
-                _ = tokens.popFirst() // Identifier
-                _ = tokens.popFirst() // .TableSep
+                for _ in 0..<keyPath.count {
+                    _ = tokens.popFirst() // Identifier
+                    _ = tokens.popFirst() // .TableSep
+                }
 
                 consumeTableIdentifierTokens(tableTokens: &tableTokens, tokens: &tokens)
             default:
