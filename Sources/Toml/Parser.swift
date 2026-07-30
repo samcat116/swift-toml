@@ -18,62 +18,65 @@ import Foundation
 
 // MARK: Parse
 
-class Parser {
+/// Matches a bare dotted key, optionally with whitespace around the dots.
+private let bareDottedKeyPattern = Pattern("[a-zA-Z0-9_-]+([ \t]*\\.[ \t]*[a-zA-Z0-9_-]+)*$")
+
+struct Parser {
     var keyPath: [String] = []
     var currentKey = "."
-    var declaredTables = Set<String>()
+    var declaredTables = Set<Path>()
     var toml: Toml = Toml()
 
     // MARK: Initializers
 
-    convenience init(toml: Toml) {
-        self.init()
+    init() {}
+
+    init(toml: Toml) {
         self.toml = toml
     }
 
     // MARK: Parsing
 
-    public func parse(string: String) throws {
+    mutating func parse(string: String) throws(TomlError) {
         // Convert input into tokens
-        let lexer = Lexer(input: string, grammar: Grammar().grammar)
+        let lexer = Lexer(input: string)
         let tokens = try lexer.tokenize()
         try parse(tokens: tokens)
     }
-    
+
     /**
         Parse a dotted key into its components, handling quoted sections
-        
+
         - Parameter key: The dotted key string (e.g., "a.b.c" or "a.'b.c'.d")
         - Returns: Array of key components
     */
     private func parseDottedKey(_ key: String) -> [String] {
-        // First check if this could be a dotted key with spaces (e.g., "a . b . c")
-        // These are valid bare dotted keys in TOML
-        let keyWithoutSpacesAroundDots = key.replacingOccurrences(of: " . ", with: ".")
-            .replacingOccurrences(of: " .", with: ".")
-            .replacingOccurrences(of: ". ", with: ".")
-        
-        // Check if after removing spaces around dots, we have a valid bare key pattern
-        let bareKeyComponentPattern = "^[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)*$"
-        if let _ = keyWithoutSpacesAroundDots.range(of: bareKeyComponentPattern, options: .regularExpression) {
-            // This is a dotted key (possibly with spaces around dots)
-            // Continue with normal parsing
-        } else {
-            // This key contains special characters that would require quoting,
-            // so it was likely a quoted key - return as single component
+        // A key that is not a bare dotted key came from a quoted key, whose
+        // dots are part of the name rather than separators.
+        guard bareDottedKeyPattern.prefixMatch(in: key[...]) != nil else {
             return [key]
         }
-        
+
         var components: [String] = []
         var current = ""
         var inQuotes = false
-        var quoteChar: Character? = nil
+        var quoteChar: Character?
         var escaped = false
-        var i = key.startIndex
-        
-        while i < key.endIndex {
-            let char = key[i]
-            
+
+        func appendCurrent() {
+            let trimmed = current.trim()
+            guard !trimmed.isEmpty else { return }
+            // Remove quotes if the entire component is quoted
+            if (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) ||
+               (trimmed.hasPrefix("'") && trimmed.hasSuffix("'")),
+               trimmed.count >= 2 {
+                components.append(String(trimmed.dropFirst().dropLast()))
+            } else {
+                components.append(trimmed)
+            }
+        }
+
+        for char in key {
             if escaped {
                 current.append(char)
                 escaped = false
@@ -90,40 +93,15 @@ class Parser {
                 quoteChar = nil
             } else if char == "." && !inQuotes {
                 // Found a dot separator outside quotes
-                let trimmed = current.trim()
-                if !trimmed.isEmpty {
-                    // Remove quotes if the entire component is quoted
-                    if (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) ||
-                       (trimmed.hasPrefix("'") && trimmed.hasSuffix("'")) {
-                        let start = trimmed.index(after: trimmed.startIndex)
-                        let end = trimmed.index(before: trimmed.endIndex)
-                        components.append(String(trimmed[start..<end]))
-                    } else {
-                        components.append(trimmed)
-                    }
-                }
+                appendCurrent()
                 current = ""
             } else {
                 current.append(char)
             }
-            
-            i = key.index(after: i)
         }
-        
-        // Don't forget the last component
-        let trimmed = current.trim()
-        if !trimmed.isEmpty {
-            // Remove quotes if the entire component is quoted
-            if (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) ||
-               (trimmed.hasPrefix("'") && trimmed.hasSuffix("'")) {
-                let start = trimmed.index(after: trimmed.startIndex)
-                let end = trimmed.index(before: trimmed.endIndex)
-                components.append(String(trimmed[start..<end]))
-            } else {
-                components.append(trimmed)
-            }
-        }
-        
+
+        appendCurrent()
+
         return components.isEmpty ? [key] : components
     }
 
@@ -132,38 +110,21 @@ class Parser {
 
         - Parameter tokens: Token stream describing a TOML data structure
     */
-    private func parse(tokens: [Token]) throws {
-        // A dispatch table for parsing TOML tables
-        let TokenMap: [Token: (Token, inout [Token]) throws -> ()] = [
-            .Identifier("1"): setValue,
-            .IntegerNumber(1): setValue,
-            .DoubleNumber(1.0): setValue,
-            .Boolean(true): setValue,
-            .DateTime(Date()): setValue,
-            .LocalDate("1979-05-27"): setValue,
-            .LocalTime("07:32:00"): setValue,
-            .LocalDateTime("1979-05-27T07:32:00"): setValue,
-            .TableBegin: setTable,
-            .ArrayBegin: setArray,
-            .TableArrayBegin: setTableArray,
-            .InlineTableBegin: setInlineTable
-        ]
-
+    private mutating func parse(tokens: [Token]) throws(TomlError) {
         // Convert tokens to values in the Toml
-        var myTokens = tokens
+        var myTokens = tokens[...]
 
-        while !myTokens.isEmpty {
-            let token = myTokens.remove(at: 0)
+        while let token = myTokens.popFirst() {
             if case .Key(let val) = token {
                 // Handle dotted keys by parsing them into components
                 let keyComponents = parseDottedKey(val)
                 if keyComponents.count > 1 {
                     // For dotted keys, we need to set up the key path
-                    currentKey = keyComponents.last!
+                    currentKey = keyComponents[keyComponents.count - 1]
                     // Create nested tables if needed
                     var currentPath = keyPath  // Start with current table context
-                    for i in 0..<(keyComponents.count - 1) {
-                        currentPath.append(keyComponents[i])
+                    for component in keyComponents.dropLast() {
+                        currentPath.append(component)
                         if !toml.hasTable(currentPath) {
                             toml.setTable(key: currentPath)
                         }
@@ -171,21 +132,51 @@ class Parser {
                     // Store the previous keyPath to restore later
                     let savedKeyPath = keyPath
                     keyPath = currentPath
-                    
+
                     // Process the next token (the value)
-                    if !myTokens.isEmpty {
-                        let valueToken = myTokens.remove(at: 0)
-                        try TokenMap[valueToken]!(valueToken, &myTokens)
+                    if let valueToken = myTokens.popFirst() {
+                        try dispatch(valueToken, &myTokens)
                     }
-                    
+
                     // Restore the keyPath
                     keyPath = savedKeyPath
                 } else {
                     currentKey = val
                 }
             } else {
-                try TokenMap[token]!(token, &myTokens)
+                try dispatch(token, &myTokens)
             }
+        }
+    }
+
+    /**
+        Route a token to the routine that consumes it.
+
+        Tokens that only ever appear as the closing half of a construct
+        (`]`, `}`, and the table-name terminators) are consumed by the routine
+        that handled the opening half. Reaching one here means the stream is
+        unbalanced, which malformed input can produce, so it is reported as a
+        syntax error. Previously this was a force-unwrapped dictionary lookup
+        and crashed the process instead.
+    */
+    private mutating func dispatch(_ token: Token, _ tokens: inout ArraySlice<Token>) throws(TomlError) {
+        switch token {
+        case .Identifier, .IntegerNumber, .DoubleNumber, .Boolean,
+             .DateTime, .LocalDate, .LocalTime, .LocalDateTime:
+            try setValue(currToken: token)
+        case .TableBegin:
+            try setTable(tokens: &tokens)
+        case .ArrayBegin:
+            try setArray(tokens: &tokens)
+        case .TableArrayBegin:
+            try setTableArray(tokens: &tokens)
+        case .InlineTableBegin:
+            try setInlineTable(tokens: &tokens)
+        case .Key:
+            // Handled by the caller.
+            throw TomlError.syntaxError("Unexpected key: \(token)")
+        case .ArrayEnd, .TableArrayEnd, .InlineTableEnd, .TableEnd, .TableSep, .Comment:
+            throw TomlError.syntaxError("Unexpected token: \(token)")
         }
     }
 
@@ -196,11 +187,10 @@ class Parser {
 
         - Returns: Array populated with values from token stream
     */
-    private func parse(tokens: inout [Token]) throws -> [Any] {
+    private mutating func parse(tokens: inout ArraySlice<Token>) throws(TomlError) -> [Any] {
         var array: [Any] = [Any]()
 
-        while !tokens.isEmpty {
-            let token = tokens.remove(at: 0)
+        while let token = tokens.popFirst() {
             switch token {
                 case .Identifier(let val):
                     array.append(val)
@@ -232,9 +222,9 @@ class Parser {
         return array
     }
 
-    private func processInlineTable(tokens: inout [Token]) throws -> Toml {
+    private func processInlineTable(tokens: inout ArraySlice<Token>) throws(TomlError) -> Toml {
         let tableTokens = extractTableTokens(tokens: &tokens, inline: true)
-        let tableParser = Parser()
+        var tableParser = Parser()
         try tableParser.parse(tokens: tableTokens)
         return tableParser.toml
     }
@@ -243,14 +233,13 @@ class Parser {
         Given a value token set its value in the `table`
 
         - Parameter currToken: A value token that is currently being parsed
-        - Parameter tokens: Array of remaining tokens in the stream
     */
-    private func setValue(currToken: Token, tokens: inout [Token]) throws {
+    private func setValue(currToken: Token) throws(TomlError) {
         var key = keyPath
         key.append(currentKey)
 
         if toml.hasKey(key: key) {
-            throw TomlError.DuplicateKey(String(describing: key))
+            throw TomlError.duplicateKey(String(describing: key))
         }
 
         toml.set(value: currToken.value as Any, for: key)
@@ -260,35 +249,33 @@ class Parser {
         Given a table extract all associated tokens from the stream and create
         a new dictionary.
 
-        - Parameter currToken: A `Token.TableBegin` token
-        - Parameter table: Parent table to save resulting table to
+        - Parameter tokens: Array of remaining tokens in the stream
     */
-    private func setTable(currToken: Token, tokens: inout [Token]) throws {
+    private mutating func setTable(tokens: inout ArraySlice<Token>) throws(TomlError) {
         var tableExists = false
         var emptyTableSep = false
         // clear out the keyPath
         keyPath.removeAll()
 
-        while !tokens.isEmpty {
-            let subToken = tokens.remove(at: 0)
+        while let subToken = tokens.popFirst() {
             if case .TableEnd = subToken {
-                if keyPath.count < 1 {
-                    throw TomlError.SyntaxError("Table name must not be blank")
+                if keyPath.isEmpty {
+                    throw TomlError.syntaxError("Table name must not be blank")
                 }
 
-                let keyPathStr = String(describing: keyPath)
-                if toml.hasKey(key: keyPath, includeTables: false) || declaredTables.contains(keyPathStr) {
-                    throw TomlError.DuplicateKey(String(describing: keyPath))
+                let path = Path(keyPath)
+                if toml.hasKey(key: keyPath, includeTables: false) || declaredTables.contains(path) {
+                    throw TomlError.duplicateKey(String(describing: keyPath))
                 }
 
-                declaredTables.insert(keyPathStr)
+                declaredTables.insert(path)
                 let tableTokens = extractTableTokens(tokens: &tokens)
                 try parse(tokens: tableTokens)
                 tableExists = true
                 break
             } else if case .TableSep = subToken {
                 if emptyTableSep {
-                    throw TomlError.SyntaxError("Must not have un-named implicit tables")
+                    throw TomlError.syntaxError("Must not have un-named implicit tables")
                 }
                 emptyTableSep = true
             } else if case .Identifier(let val) = subToken {
@@ -299,38 +286,47 @@ class Parser {
         }
 
         if !tableExists {
-            throw TomlError.SyntaxError("Table must contain at least a closing bracket")
+            throw TomlError.syntaxError("Table must contain at least a closing bracket")
         }
     }
 
-    private func setTableArray(currToken: Token, tokens: inout [Token]) throws {
+    private mutating func setTableArray(tokens: inout ArraySlice<Token>) throws(TomlError) {
         // clear out the keyPath
         keyPath.removeAll()
 
-        tableLoop: while !tokens.isEmpty {
-            let subToken = tokens.remove(at: 0)
+        var sawEnd = false
+
+        tableLoop: while let subToken = tokens.popFirst() {
             if case .TableArrayEnd = subToken {
-                if keyPath.count < 1 {
-                    throw TomlError.SyntaxError("Table array name must not be blank")
+                if keyPath.isEmpty {
+                    throw TomlError.syntaxError("Table array name must not be blank")
                 }
 
-                let tableTokens = getTableTokens(keyPath: keyPath, tokens: &tokens)
+                let tableTokens = try getTableTokens(keyPath: keyPath, tokens: &tokens)
+
+                var tableParser = Parser()
+                try tableParser.parse(tokens: tableTokens)
 
                 if toml.hasKey(key: keyPath) {
-                    var arr: [Toml] = toml.array(keyPath)!
-                    let tableParser = Parser()
-                    try tableParser.parse(tokens: tableTokens)
+                    guard var arr: [Toml] = toml.array(keyPath) else {
+                        throw TomlError.duplicateKey(String(describing: keyPath))
+                    }
                     arr.append(tableParser.toml)
                     toml.set(value: arr, for: keyPath)
                 } else {
-                    let tableParser = Parser()
-                    try tableParser.parse(tokens: tableTokens)
                     toml.set(value: [tableParser.toml], for: keyPath)
                 }
+                sawEnd = true
                 break tableLoop
             } else if case .Identifier(let val) = subToken {
                 keyPath.append(val)
             }
+        }
+
+        // A truncated declaration such as "[[a.b" used to be accepted
+        // silently, producing an empty document.
+        if !sawEnd {
+            throw TomlError.syntaxError("Table array must contain a closing bracket")
         }
     }
 
@@ -338,10 +334,9 @@ class Parser {
         Given an inline table extract all associated tokens from the stream
         and create a new dictionary.
 
-        - Parameter currToken: A `Token.InlineTableBegin` token
-        - Parameter table: Parent table to save resulting inline table to
+        - Parameter tokens: Array of remaining tokens in the stream
     */
-    private func setInlineTable(currToken: Token, tokens: inout [Token]) throws {
+    private mutating func setInlineTable(tokens: inout ArraySlice<Token>) throws(TomlError) {
         keyPath.append(currentKey)
 
         let tableTokens = extractTableTokens(tokens: &tokens, inline: true)
@@ -356,10 +351,9 @@ class Parser {
     /**
         Given an array save it to the parent table
 
-        - Parameter currToken: A `Token.ArrayBegin` token
-        - Parameter table: Parent table to save resulting inline table to
+        - Parameter tokens: Array of remaining tokens in the stream
     */
-    private func setArray(currToken: Token, tokens: inout [Token]) throws {
+    private mutating func setArray(tokens: inout ArraySlice<Token>) throws(TomlError) {
         let arr: [Any] = try parse(tokens: &tokens)
 
         var myKeyPath = keyPath

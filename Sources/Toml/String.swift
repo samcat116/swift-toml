@@ -16,25 +16,22 @@
 
 import Foundation
 
-func getUnicodeChar(unicode: String) throws -> String {
-    // First validate that all characters are valid hex digits
-    let hexCharSet = CharacterSet(charactersIn: "0123456789ABCDEFabcdef")
-    if !unicode.unicodeScalars.allSatisfy({ hexCharSet.contains($0) }) {
-        throw TomlError.InvalidEscapeSequence("\\u" + unicode)
-    }
-    
-    // check if it's a valid character
-    let code = Int(strtoul(unicode, nil, 16))
-    
-    // For unicode escapes, validate the code point
-    if code < 0x0 || (code > 0xD7FF && code < 0xE000) || code > 0x10FFFF {
-        throw TomlError.InvalidUnicodeCharacter(code)
+func getUnicodeChar(unicode: String) throws(TomlError) -> String {
+    // A `\u` escape must be exactly four hex digits and a `\U` escape exactly
+    // eight; the caller guarantees the count, this validates the digits.
+    guard let code = UInt32(unicode, radix: 16) else {
+        throw TomlError.invalidEscapeSequence("\\u" + unicode)
     }
 
-    return String(describing: UnicodeScalar(code)!)
+    // Scalar values in the surrogate range and above U+10FFFF do not exist.
+    guard let scalar = Unicode.Scalar(code) else {
+        throw TomlError.invalidUnicodeCharacter(Int(code))
+    }
+
+    return String(scalar)
 }
 
-func checkEscape(char: Character, escape: inout Bool) throws -> (String, Int) {
+func checkEscape(char: Character, escape: inout Bool) throws(TomlError) -> (String, Int) {
     var unicodeSize = -1
     var s: String = ""
 
@@ -68,7 +65,7 @@ func checkEscape(char: Character, escape: inout Bool) throws -> (String, Int) {
         case "U":
             unicodeSize = 8
         default:
-            throw TomlError.InvalidEscapeSequence("\\" + String(describing: char))
+            throw TomlError.invalidEscapeSequence("\\" + String(char))
     }
 
     return (s, unicodeSize)
@@ -76,27 +73,59 @@ func checkEscape(char: Character, escape: inout Bool) throws -> (String, Int) {
 
 extension String {
     func trim() -> String {
-        return self.trimmingCharacters(in: NSCharacterSet.whitespacesAndNewlines)
+        return self.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func stripLineContinuation() -> String {
-        var s = self
-        let regex = try! NSRegularExpression(pattern: "\\\\(\\s+)",
-            options: [.dotMatchesLineSeparators])
-        let matches = regex.matches(in: s, options: [],
-            range: NSMakeRange(0, s.utf16.count))
-        let nss = NSString(string: s)
+        // A backslash at the end of a line in a multi-line string discards
+        // the backslash and all following whitespace.
+        //
+        // Escaped backslashes are consumed in pairs first, so the second
+        // backslash of a `\\` immediately before a newline is not mistaken
+        // for a line continuation. The previous implementation matched with a
+        // regex and then called `replacingOccurrences` for each match, which
+        // rewrote the whole string once per match and stripped every other
+        // copy of the matched text along with it.
+        var result = ""
+        result.reserveCapacity(count)
 
-        for match in matches {
-            let m0 = nss.substring(with: match.range(at: 0))
-            s = s.replacingOccurrences(of: m0, with: "")
+        var rest = self[...]
+        while let backslash = rest.firstIndex(of: "\\") {
+            result.append(contentsOf: rest[..<backslash])
+
+            let afterBackslash = rest.index(after: backslash)
+            guard afterBackslash < rest.endIndex else {
+                result.append("\\")
+                return result
+            }
+
+            let next = rest[afterBackslash]
+            if next == "\\" {
+                // Escaped backslash: keep both, and do not let the second one
+                // start a continuation.
+                result.append("\\\\")
+                rest = rest[rest.index(after: afterBackslash)...]
+            } else if next.isWhitespace {
+                // Line continuation: drop the backslash and the run of
+                // whitespace that follows it.
+                var scan = afterBackslash
+                while scan < rest.endIndex, rest[scan].isWhitespace {
+                    scan = rest.index(after: scan)
+                }
+                rest = rest[scan...]
+            } else {
+                result.append("\\")
+                rest = rest[afterBackslash...]
+            }
         }
 
-        return s
+        result.append(contentsOf: rest)
+        return result
     }
 
-    func replaceEscapeSequences() throws -> String {
+    func replaceEscapeSequences() throws(TomlError) -> String {
         var s = "" // new string that is being constructed
+        s.reserveCapacity(count)
         var escape = false
         var unicode = ""
         var unicodeSize = -1
@@ -113,11 +142,11 @@ extension String {
                     if char == "\\" {
                         escape = true
                     } else {
-                        s += String(describing: char)
+                        s.append(char)
                     }
                 } else if unicodeSize > 0 {
                     unicodeSize -= 1
-                    unicode += String(describing: char)
+                    unicode.append(char)
                 } else {
                     let (newChar, size) = try checkEscape(char: char, escape: &escape)
                     s += newChar
@@ -126,12 +155,19 @@ extension String {
             } else if char == "\\" {
                 escape = true
             } else {
-                s += String(describing: char)
+                s.append(char)
             }
         }
 
         if unicodeSize == 0 {
             s += try getUnicodeChar(unicode: unicode)
+        } else if escape {
+            // The string ended part-way through an escape sequence. This used
+            // to fall off the end silently, discarding the incomplete escape
+            // and everything the caller expected with it: `a = "\u00"` parsed
+            // to the empty string instead of reporting an error.
+            throw TomlError.invalidEscapeSequence(
+                unicodeSize > 0 ? "\\u" + unicode : "\\")
         }
 
         return s
@@ -140,30 +176,59 @@ extension String {
 
 // Mark: String related array extensions
 
-func quoted(_ value: String) -> String {
-    if let _ = value.match(".*[\\u0020-\\u002B\\u002E-\\u002F\\u003A-\\u0040" +
-        "\\u005B-\\u005E\\u0060\\u007B-\\uFFFF]+.*") {
-        return "\"\(value)\""
-    }
+/**
+    Does this scalar force a key to be quoted when serialized?
 
-    return value
+    Bare keys are `[A-Za-z0-9_-]`; everything else needs quoting. Spelled out
+    as the complement of that set to match the ranges the serializer has
+    always used.
+*/
+private func requiresQuoting(_ scalar: Unicode.Scalar) -> Bool {
+    switch scalar.value {
+    case 0x20...0x2B,   // space through +
+         0x2E...0x2F,   // . /
+         0x3A...0x40,   // : through @
+         0x5B...0x5E,   // [ through ^
+         0x60:          // `
+        return true
+    default:
+        // Everything from { upward, including scalars outside the BMP.
+        return scalar.value >= 0x7B
+    }
+}
+
+func quoted(_ value: String) -> String {
+    // A direct scalar scan. The previous implementation ran a
+    // `.*[ranges]+.*` regex per key, which made the engine backtrack across
+    // the whole key on every miss, and could not see past a newline because
+    // `.` does not match line separators.
+    value.unicodeScalars.contains(where: requiresQuoting) ? "\"\(value)\"" : value
 }
 
 /**
     Escape the string according to the rules of a single line Toml string
 
-    - Parameters string: The string to escape
+    - Parameter string: The string to escape
 
     - Returns: Escaped version of the string
 */
 func escape(string: String) -> String {
-    var result: String
-    let escapeMap = ["\n": "\\n", "\r": "\\r", "\t": "\\t", "\"": "\\\"", "\u{001B}": "\\e"]
+    // Built in one pass. The previous implementation ran
+    // `replacingOccurrences` once per escape mapping, walking the string six
+    // times and reallocating on each pass.
+    var result = ""
+    result.reserveCapacity(string.count)
 
-    // must escape \ first because it is the escape character
-    result = string.replacingOccurrences(of: "\\", with: "\\\\")
-    for (key, val) in escapeMap {
-        result = result.replacingOccurrences(of: key, with: val)
+    for char in string {
+        switch char {
+        case "\\": result += "\\\\"
+        case "\n": result += "\\n"
+        case "\r": result += "\\r"
+        case "\t": result += "\\t"
+        case "\"": result += "\\\""
+        case "\u{001B}": result += "\\e"
+        default: result.append(char)
+        }
     }
 
     return result

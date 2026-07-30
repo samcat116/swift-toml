@@ -16,150 +16,165 @@
 
 import Foundation
 
-class Grammar {
-    var grammar = [String: [Evaluator]]()
+struct Grammar: Sendable {
+    // The grammar is immutable, and compiling ~45 regular expressions is by
+    // far the most expensive part of building it. Sharing one instance keeps
+    // that off the per-parse path; it used to be rebuilt for every document.
+    static let shared = Grammar()
+
+    let grammar: [String: [Evaluator]]
 
     init() {
-        grammar["comment"] = commentEvaluators()
-        grammar["string"] = stringEvaluators()
-        grammar["literalString"] = literalStringEvaluators()
-        grammar["multilineString"] = multiLineStringEvaluators()
-        grammar["multilineLiteralString"] = multiLineStringLiteralEvaluators()
-        grammar["tableName"] = tableNameEvaluators()
-        grammar["tableArray"] = tableArrayEvaluators()
-        grammar["value"] = valueEvaluators()
-        grammar["array"] = arrayEvaluators()
-        grammar["inlineTable"] = inlineTableEvaluators()
-        grammar["root"] = rootEvaluators()
+        grammar = [
+            "comment": Self.commentEvaluators(),
+            "string": Self.stringEvaluators(),
+            "literalString": Self.literalStringEvaluators(),
+            "multilineString": Self.multiLineStringEvaluators(),
+            "multilineLiteralString": Self.multiLineStringLiteralEvaluators(),
+            "tableName": Self.tableNameEvaluators(),
+            "tableArray": Self.tableArrayEvaluators(),
+            "value": Self.valueEvaluators(),
+            "array": Self.arrayEvaluators(),
+            "inlineTable": Self.inlineTableEvaluators(),
+            "root": Self.rootEvaluators(),
+        ]
     }
 
-    private func commentEvaluators() -> [Evaluator] {
+    private static func commentEvaluators() -> [Evaluator] {
         return [
             Evaluator(regex: "[\r\n]", generator: { _ in nil }, pop: true),
             // to enable saving comments in the tokenizer use the following line
-            // Evaluator(regex: ".*", generator: { (r: String) in .Comment(r.trim()) }, pop: true)
+            // Evaluator(regex: ".*", generator: { (r: Substring) in .Comment(r.trim()) }, pop: true)
             Evaluator(regex: ".*", generator: { _ in nil }, pop: true)
         ]
     }
 
-    private func stringEvaluators() -> [Evaluator] {
+    private static func stringEvaluators() -> [Evaluator] {
         return [
             Evaluator(regex: "\"", generator: { _ in nil }, pop: true),
             Evaluator(regex: "([\\u0020-\\u0021\\u0023-\\u005B\\u005D-\\uFFFF]|\\\\\"|\\\\)+",
-                generator: { (r: String) in .Identifier(try r.replaceEscapeSequences()) })
+                generator: { (r: Substring) throws(TomlError) in
+                    .Identifier(try String(r).replaceEscapeSequences())
+                })
         ]
     }
 
-    private func literalStringEvaluators() -> [Evaluator] {
+    private static func literalStringEvaluators() -> [Evaluator] {
         return [
             Evaluator(regex: "'", generator: { _ in nil }, pop: true),
             Evaluator(regex: "([\\u0020-\\u0026\\u0028-\\uFFFF])+",
-                generator: { (r: String) in .Identifier(r) })
+                generator: { (r: Substring) in .Identifier(String(r)) })
         ]
     }
 
-    private func multiLineStringEvaluators() -> [Evaluator] {
+    private static func multiLineStringEvaluators() -> [Evaluator] {
         let validUnicodeChars = "\\u0020-\\u0021\\u0023-\\uFFFF"
         return [
             Evaluator(regex: "\"\"\"", generator: { _ in nil }, pop: true),
             // Note: Does not allow multi-line strings that end with double qoutes.
             // This is a common limitation of a variety of parsers I have tested
             Evaluator(regex: "([\n" + validUnicodeChars + "]\"?\"?)*[\n" + validUnicodeChars + "]+",
-                generator: {
-                    (r: String) in
-                        .Identifier(try r.trim().stripLineContinuation().replaceEscapeSequences())
+                // Line continuations are resolved before trimming: a
+                // continuation is a backslash followed by whitespace, and
+                // trimming first destroys the whitespace that identifies it.
+                // A string ending in `"""\<newline>   ` then reached
+                // `replaceEscapeSequences` as a lone trailing backslash,
+                // which only produced the right answer because an incomplete
+                // escape used to be discarded in silence.
+                generator: { (r: Substring) throws(TomlError) in
+                    .Identifier(try String(r).stripLineContinuation().trim().replaceEscapeSequences())
                 }, multiline: true)
         ]
     }
 
-    private func multiLineStringLiteralEvaluators() -> [Evaluator] {
+    private static func multiLineStringLiteralEvaluators() -> [Evaluator] {
         let validUnicodeChars = "\n\\u0020-\\u0026\\u0028-\\uFFFF"
         return [
             Evaluator(regex: "'''", generator: { _ in nil }, pop: true),
             Evaluator(regex: "([" + validUnicodeChars + "]'?'?)*[" + validUnicodeChars + "]+",
-                generator: { (r: String) in .Identifier(r.trim()) }, multiline: true)
+                generator: { (r: Substring) in .Identifier(String(r).trim()) }, multiline: true)
         ]
     }
 
-    private func tableNameEvaluators() -> [Evaluator] {
+    private static func tableNameEvaluators() -> [Evaluator] {
         let tableErrorStr = "Invalid table name declaration"
         return [
             Evaluator(regex: "\"", generator: { _ in nil }, push: ["string"]),
             Evaluator(regex: "'", generator: { _ in nil }, push: ["literalString"]),
             Evaluator(regex: "\\.", generator: { _ in .TableSep }),
             // opening [ are prohibited directly within a table declaration
-            Evaluator(regex: "\\[", generator: { _ in throw TomlError.SyntaxError(tableErrorStr) }),
+            Evaluator(regex: "\\[", generator: { _ throws(TomlError) in throw TomlError.syntaxError(tableErrorStr) }),
             // hashes are prohibited directly within a table declaration
-            Evaluator(regex: "#", generator: { _ in throw TomlError.SyntaxError(tableErrorStr) }),
-            Evaluator(regex: "[A-Za-z0-9_-]+", generator: { (r: String) in .Identifier(r) }),
+            Evaluator(regex: "#", generator: { _ throws(TomlError) in throw TomlError.syntaxError(tableErrorStr) }),
+            Evaluator(regex: "[A-Za-z0-9_-]+", generator: { (r: Substring) in .Identifier(String(r)) }),
             Evaluator(regex: "\\]\\]", generator: { _ in .TableArrayEnd }, pop: true),
             Evaluator(regex: "\\]", generator: { _ in .TableEnd }, pop: true),
         ]
     }
 
-    private func tableArrayEvaluators() -> [Evaluator] {
+    private static func tableArrayEvaluators() -> [Evaluator] {
         let tableErrorStr = "Invalid table name declaration"
         return [
             Evaluator(regex: "\"", generator: { _ in nil }, push: ["string"]),
             Evaluator(regex: "'", generator: { _ in nil }, push: ["literalString"]),
             Evaluator(regex: "\\.", generator: { _ in .TableSep }),
             // opening [ are prohibited directly within a table declaration
-            Evaluator(regex: "\\[", generator: { _ in throw TomlError.SyntaxError(tableErrorStr) }),
+            Evaluator(regex: "\\[", generator: { _ throws(TomlError) in throw TomlError.syntaxError(tableErrorStr) }),
             // hashes are prohibited directly within a table declaration
-            Evaluator(regex: "#", generator: { _ in throw TomlError.SyntaxError(tableErrorStr) }),
-            Evaluator(regex: "[A-Za-z0-9_-]+", generator: { (r: String) in .Identifier(r) }),
+            Evaluator(regex: "#", generator: { _ throws(TomlError) in throw TomlError.syntaxError(tableErrorStr) }),
+            Evaluator(regex: "[A-Za-z0-9_-]+", generator: { (r: Substring) in .Identifier(String(r)) }),
             Evaluator(regex: "\\]\\]", generator: { _ in .TableArrayEnd }, pop: true),
         ]
     }
 
-    private func dateValueEvaluators() -> [Evaluator] {
+    private static func dateValueEvaluators() -> [Evaluator] {
         let dateTimeStr = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
         let dateStr = "\\d{4}-\\d{2}-\\d{2}"
         let timeStr = "\\d{2}:\\d{2}:\\d{2}"
-        
+
         return [
             // Offset Date-Time: RFC 3339 w/ fractional seconds and time offset
             Evaluator(regex: dateTimeStr + ".\\d+(Z|z|[-\\+]\\d{2}:\\d{2})", generator: {
-                (r: String) in
-                    if let date = Date(rfc3339String: r) {
+                (r: Substring) throws(TomlError) in
+                    if let date = Date(rfc3339String: String(r)) {
                         return Token.DateTime(date)
                     } else {
-                        throw TomlError.InvalidDateFormat("####-##-##T##:##:##.###+/-##:## (\(r))")
+                        throw TomlError.invalidDateFormat("####-##-##T##:##:##.###+/-##:## (\(r))")
                     }
             }, pop: true),
             // Offset Date-Time: RFC 3339 w/o fractional seconds and time offset
             Evaluator(regex: dateTimeStr + "(Z|z|[-\\+]\\d{2}:\\d{2})", generator: {
-                (r: String) in
-                    if let date = Date(rfc3339String: r, fractionalSeconds: false) {
+                (r: Substring) throws(TomlError) in
+                    if let date = Date(rfc3339String: String(r), fractionalSeconds: false) {
                         return Token.DateTime(date)
                     } else {
-                        throw TomlError.InvalidDateFormat("####-##-##T##:##:##+/-##:## (\(r))")
+                        throw TomlError.invalidDateFormat("####-##-##T##:##:##+/-##:## (\(r))")
                     }
             }, pop: true),
             // Local Date-Time: w/ fractional seconds, no timezone
-            Evaluator(regex: dateTimeStr + ".\\d+", generator: { (r: String) in
-                return Token.LocalDateTime(r)
+            Evaluator(regex: dateTimeStr + ".\\d+", generator: { (r: Substring) in
+                return Token.LocalDateTime(String(r))
             }, pop: true),
             // Local Date-Time: w/o fractional seconds, no timezone
-            Evaluator(regex: dateTimeStr, generator: { (r: String) in
-                return Token.LocalDateTime(r)
+            Evaluator(regex: dateTimeStr, generator: { (r: Substring) in
+                return Token.LocalDateTime(String(r))
             }, pop: true),
             // Local Time: w/ fractional seconds
-            Evaluator(regex: timeStr + ".\\d+", generator: { (r: String) in
-                return Token.LocalTime(r)
+            Evaluator(regex: timeStr + ".\\d+", generator: { (r: Substring) in
+                return Token.LocalTime(String(r))
             }, pop: true),
             // Local Time: w/o fractional seconds
-            Evaluator(regex: timeStr, generator: { (r: String) in
-                return Token.LocalTime(r)
+            Evaluator(regex: timeStr, generator: { (r: Substring) in
+                return Token.LocalTime(String(r))
             }, pop: true),
             // Local Date: date only
-            Evaluator(regex: dateStr, generator: { (r: String) in
-                return Token.LocalDate(r)
+            Evaluator(regex: dateStr, generator: { (r: Substring) in
+                return Token.LocalDate(String(r))
             }, pop: true)
         ]
     }
 
-    private func stringValueEvaluators() -> [Evaluator] {
+    private static func stringValueEvaluators() -> [Evaluator] {
         return [
             // Multi-line string values (must come before single-line test)
             // Special case, empty multi-line string
@@ -182,13 +197,13 @@ class Grammar {
         ]
     }
 
-    private func doubleValueEvaluators() -> [Evaluator] {
-        let generator: TokenGenerator = { (val: String) in 
+    private static func doubleValueEvaluators() -> [Evaluator] {
+        let generator: TokenGenerator = { (val: Substring) throws(TomlError) in
             let cleaned = val.replacingOccurrences(of: "_", with: "")
             if let value = Double(cleaned) {
                 return .DoubleNumber(value)
             } else {
-                throw TomlError.InvalidNumberFormat("Invalid float: \(val)")
+                throw TomlError.invalidNumberFormat("Invalid float: \(val)")
             }
         }
         return [
@@ -200,60 +215,50 @@ class Grammar {
         ]
     }
 
-    private func intValueEvaluators() -> [Evaluator] {
+    private static func intValueEvaluators() -> [Evaluator] {
+        /// Build a generator for an integer literal in `radix` with a
+        /// two-character prefix such as `0x`.
+        func radixGenerator(prefix: Int, radix: Int, name: String) -> TokenGenerator {
+            { (r: Substring) throws(TomlError) in
+                let digits = r.dropFirst(prefix).replacingOccurrences(of: "_", with: "")
+                guard let value = Int(digits, radix: radix) else {
+                    throw TomlError.invalidNumberFormat("Invalid \(name): \(r)")
+                }
+                return .IntegerNumber(value)
+            }
+        }
+
         return [
             // Hexadecimal integer values (with optional underscores)
             Evaluator(regex: "0x[0-9A-Fa-f_]+",
-                generator: { (r: String) in 
-                    let hex = String(r.dropFirst(2)).replacingOccurrences(of: "_", with: "")
-                    if let value = Int(hex, radix: 16) {
-                        return .IntegerNumber(value)
-                    } else {
-                        throw TomlError.InvalidNumberFormat("Invalid hexadecimal: \(r)")
-                    }
-                }, pop: true),
+                generator: radixGenerator(prefix: 2, radix: 16, name: "hexadecimal"), pop: true),
             // Octal integer values (with optional underscores)
             Evaluator(regex: "0o[0-7_]+",
-                generator: { (r: String) in 
-                    let octal = String(r.dropFirst(2)).replacingOccurrences(of: "_", with: "")
-                    if let value = Int(octal, radix: 8) {
-                        return .IntegerNumber(value)
-                    } else {
-                        throw TomlError.InvalidNumberFormat("Invalid octal: \(r)")
-                    }
-                }, pop: true),
+                generator: radixGenerator(prefix: 2, radix: 8, name: "octal"), pop: true),
             // Binary integer values (with optional underscores)
             Evaluator(regex: "0b[01_]+",
-                generator: { (r: String) in 
-                    let binary = String(r.dropFirst(2)).replacingOccurrences(of: "_", with: "")
-                    if let value = Int(binary, radix: 2) {
-                        return .IntegerNumber(value)
-                    } else {
-                        throw TomlError.InvalidNumberFormat("Invalid binary: \(r)")
-                    }
-                }, pop: true),
+                generator: radixGenerator(prefix: 2, radix: 2, name: "binary"), pop: true),
             // Decimal integer values (with optional underscores)
             Evaluator(regex: "[-\\+]?[0-9][0-9_]*",
-                generator: { (r: String) in 
+                generator: { (r: Substring) throws(TomlError) in
                     let cleaned = r.replacingOccurrences(of: "_", with: "")
-                    if let value = Int(cleaned) {
-                        return .IntegerNumber(value)
-                    } else {
-                        throw TomlError.InvalidNumberFormat("Invalid integer: \(r)")
+                    guard let value = Int(cleaned) else {
+                        throw TomlError.invalidNumberFormat("Invalid integer: \(r)")
                     }
+                    return .IntegerNumber(value)
                 }, pop: true),
         ]
     }
 
-    private func booleanValueEvaluators() -> [Evaluator] {
+    private static func booleanValueEvaluators() -> [Evaluator] {
         return [
             // Boolean values
-            Evaluator(regex: "true", generator: { (r: String) in .Boolean(true) }, pop: true),
-            Evaluator(regex: "false", generator: { (r: String) in .Boolean(false) }, pop: true),
+            Evaluator(regex: "true", generator: { _ in .Boolean(true) }, pop: true),
+            Evaluator(regex: "false", generator: { _ in .Boolean(false) }, pop: true),
         ]
     }
-    
-    private func specialFloatValueEvaluators() -> [Evaluator] {
+
+    private static func specialFloatValueEvaluators() -> [Evaluator] {
         return [
             // Positive infinity
             Evaluator(regex: "\\+?inf", generator: { _ in .DoubleNumber(Double.infinity) }, pop: true),
@@ -264,14 +269,14 @@ class Grammar {
         ]
     }
 
-    private func whitespaceValueEvaluators() -> [Evaluator] {
+    private static func whitespaceValueEvaluators() -> [Evaluator] {
         return [
             // Ignore white-space
             Evaluator(regex: "[ \t]", generator: { _ in nil }),
         ]
     }
 
-    private func arrayValueEvaluators() -> [Evaluator] {
+    private static func arrayValueEvaluators() -> [Evaluator] {
         return [
             // Arrays
             Evaluator(regex: "\\[", generator: {
@@ -280,7 +285,7 @@ class Grammar {
         ]
     }
 
-    private func inlineTableValueEvaluators() -> [Evaluator] {
+    private static func inlineTableValueEvaluators() -> [Evaluator] {
         return [
             // Inline tables
             Evaluator(regex: "\\{", generator: {
@@ -289,7 +294,7 @@ class Grammar {
         ]
     }
 
-    private func valueEvaluators() -> [Evaluator] {
+    private static func valueEvaluators() -> [Evaluator] {
         let typeEvaluators = stringValueEvaluators() + dateValueEvaluators() +
             specialFloatValueEvaluators() + doubleValueEvaluators() + intValueEvaluators() + booleanValueEvaluators()
 
@@ -297,7 +302,7 @@ class Grammar {
             inlineTableValueEvaluators() + typeEvaluators
     }
 
-    private func arrayEvaluators() -> [Evaluator] {
+    private static func arrayEvaluators() -> [Evaluator] {
         return [
             // Ignore white-space
             Evaluator(regex: "[ \n\t]", generator: { _ in nil }),
@@ -312,53 +317,41 @@ class Grammar {
         ] + valueEvaluators()
     }
 
-    private func stringKeyEvaluator() -> [Evaluator] {
+    private static func stringKeyEvaluator() -> [Evaluator] {
         let validUnicodeChars = "\\u0020-\\u0021\\u0023-\\u005B\\u005D-\\uFFFF"
         let bareKeyPattern = "[a-zA-Z0-9_-]+"
-        let quotedKeyPattern = "\"([" + validUnicodeChars + "]|\\\\\"|\\\\)+\""
-        let literalKeyPattern = "'([\\u0020-\\u0026\\u0028-\\uFFFF])+'"
-        
+
         // Simple dotted key pattern: only bare keys separated by dots (no quoted parts for now)
         let simpleDottedPattern = bareKeyPattern + "([ \t]*\\.[ \t]*" + bareKeyPattern + ")+[ \t]*="
-        
+
         return [
             // string key (quoted keys take precedence)
             Evaluator(regex: "\"([" + validUnicodeChars + "]|\\\\\"|\\\\)+\"[ \t]*=",
-                generator: {
-                    (r: String) in
-                        .Key(try trimStringIdentifier(r, "\"").replaceEscapeSequences())
+                generator: { (r: Substring) throws(TomlError) in
+                    .Key(try trimStringIdentifier(r, "\"").replaceEscapeSequences())
                 },
                 push: ["value"]),
             // literal string key
             Evaluator(regex: "'([\\u0020-\\u0026\\u0028-\\uFFFF])+'[ \t]*=",
-                generator: { (r: String) in .Key(trimStringIdentifier(r, "'")) },
+                generator: { (r: Substring) in .Key(trimStringIdentifier(r, "'")) },
                 push: ["value"]),
             // dotted key (must come after quoted keys but before simple keys)
             Evaluator(regex: simpleDottedPattern,
-                generator: {
-                    (r: String) in
-                        // Remove the trailing '=' and trim
-                        let keyPart = String(r[..<r.index(r.endIndex, offsetBy:-1)]).trim()
-                        // Only treat as dotted if it actually contains dots outside of quotes
-                        if keyPart.contains(".") && !keyPart.hasPrefix("\"") && !keyPart.hasPrefix("'") {
-                            return .Key(keyPart)
-                        } else {
-                            // This shouldn't match, but fallback to regular processing
-                            return .Key(keyPart)
-                        }
+                generator: { (r: Substring) in
+                    // Remove the trailing '=' and trim
+                    .Key(String(r.dropLast()).trim())
                 },
                 push: ["value"]),
             // bare key
-            Evaluator(regex: "[a-zA-Z0-9_-]+[ \t]*=",
-                generator: {
-                    (r: String) in
-                        .Key(String(r[..<r.index(r.endIndex, offsetBy:-1)]).trim())
+            Evaluator(regex: bareKeyPattern + "[ \t]*=",
+                generator: { (r: Substring) in
+                    .Key(String(r.dropLast()).trim())
                 },
                 push: ["value"]),
         ]
     }
 
-    private func inlineTableEvaluators() -> [Evaluator] {
+    private static func inlineTableEvaluators() -> [Evaluator] {
         return [
             // Ignore white-space and commas
             Evaluator(regex: "[ \t,]", generator: { _ in nil }),
@@ -368,7 +361,7 @@ class Grammar {
         ] + stringKeyEvaluator()
     }
 
-    private func rootEvaluators() -> [Evaluator] {
+    private static func rootEvaluators() -> [Evaluator] {
         return [
             // Ignore white-space
             Evaluator(regex: "[ \t\r\n]", generator: { _ in nil }),
