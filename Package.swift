@@ -24,6 +24,13 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]),
+        // Decoder for the toml-test conformance suite; see Scripts/toml-test.sh
+        .executableTarget(
+            name: "TomlTestDecoder",
+            dependencies: ["Toml"],
+            swiftSettings: [
+                .swiftLanguageMode(.v6)
+            ]),
         .testTarget(
             name: "TomlTests",
             dependencies: ["Toml"],

@@ -79,6 +79,18 @@ struct Lexer {
             }
         }
 
+        // Every construct that opens a state closes it again, so anything
+        // left on the stack at the end of the document was never closed: an
+        // array without its `]`, an inline table without its `}`, a string
+        // without its final quote. These used to be accepted, and produced
+        // whatever partial document the truncated input happened to describe.
+        // A document that ends immediately after a value or a table header,
+        // with no final newline, is left waiting for that newline in `eol`.
+        if stack != ["root"] && stack != ["root", "eol"] {
+            throw TomlError.syntaxError(
+                "Unterminated \(stack.last ?? "document") at end of document")
+        }
+
         return tokens
     }
 }

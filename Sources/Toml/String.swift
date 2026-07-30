@@ -31,6 +31,16 @@ func getUnicodeChar(unicode: String) throws(TomlError) -> String {
     return String(scalar)
 }
 
+/// Name the escape a partially-read run of hex digits belongs to, for error
+/// reporting: `\x` takes two digits, `\u` four and `\U` eight.
+private func escapePrefix(remaining: Int, digits: String) -> String {
+    switch remaining + digits.count {
+    case 2: return "\\x"
+    case 8: return "\\U"
+    default: return "\\u"
+    }
+}
+
 func checkEscape(char: Character, escape: inout Bool) throws(TomlError) -> (String, Int) {
     var unicodeSize = -1
     var s: String = ""
@@ -60,6 +70,9 @@ func checkEscape(char: Character, escape: inout Bool) throws(TomlError) -> (Stri
         case "e":
             s = "\u{001B}"  // ESC character (ASCII 27)
             escape = false
+        case "x":
+            // TOML 1.1.0: two hex digits, for code points up to U+00FF.
+            unicodeSize = 2
         case "u":
             unicodeSize = 4
         case "U":
@@ -74,6 +87,25 @@ func checkEscape(char: Character, escape: inout Bool) throws(TomlError) -> (Stri
 extension String {
     func trim() -> String {
         return self.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /**
+        The content of a multi-line string, as the spec defines it.
+
+        Two things happen to the text between the delimiters: CRLF line
+        endings are normalized to LF, and a newline immediately following the
+        opening delimiter is dropped. Everything else -- including trailing
+        whitespace before the closing delimiter -- is part of the string.
+
+        This used to be a `trim()`, which additionally ate leading and
+        trailing whitespace that the document asked for.
+    */
+    func multilineStringContent() -> String {
+        var content = contains("\r\n") ? replacingOccurrences(of: "\r\n", with: "\n") : self
+        if content.hasPrefix("\n") {
+            content.removeFirst()
+        }
+        return content
     }
 
     func stripLineContinuation() -> String {
@@ -106,13 +138,25 @@ extension String {
                 result.append("\\\\")
                 rest = rest[rest.index(after: afterBackslash)...]
             } else if next.isWhitespace {
-                // Line continuation: drop the backslash and the run of
-                // whitespace that follows it.
                 var scan = afterBackslash
+                var reachedNewline = false
                 while scan < rest.endIndex, rest[scan].isWhitespace {
+                    reachedNewline = reachedNewline || rest[scan].isNewline
                     scan = rest.index(after: scan)
                 }
-                rest = rest[scan...]
+
+                if reachedNewline {
+                    // Line continuation: drop the backslash and the run of
+                    // whitespace that follows it.
+                    rest = rest[scan...]
+                } else {
+                    // Only whitespace that runs to the end of the line makes
+                    // a continuation. A backslash followed by a space in the
+                    // middle of a line is an invalid escape, which the escape
+                    // pass reports once the backslash is left in place.
+                    result.append("\\")
+                    rest = rest[afterBackslash...]
+                }
             } else {
                 result.append("\\")
                 rest = rest[afterBackslash...]
@@ -167,7 +211,7 @@ extension String {
             // and everything the caller expected with it: `a = "\u00"` parsed
             // to the empty string instead of reporting an error.
             throw TomlError.invalidEscapeSequence(
-                unicodeSize > 0 ? "\\u" + unicode : "\\")
+                unicodeSize > 0 ? escapePrefix(remaining: unicodeSize, digits: unicode) + unicode : "\\")
         }
 
         return s

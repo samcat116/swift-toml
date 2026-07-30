@@ -45,11 +45,13 @@ enum TokenKind: Hashable, Sendable {
     case tableSep
     case tableEnd
     case comment
+    case comma
 }
 
 enum Token: Hashable, Sendable {
     case Identifier(String)
-    case Key(String)
+    /// A key declaration, already split into its dotted components.
+    case Key([String])
     case IntegerNumber(Int)
     case DoubleNumber(Double)
     case Boolean(Bool)
@@ -67,6 +69,8 @@ enum Token: Hashable, Sendable {
     case TableSep
     case TableEnd
     case Comment(String)
+    /// The separator between array elements or inline table entries.
+    case Comma
 
     var kind: TokenKind {
         switch self {
@@ -89,6 +93,7 @@ enum Token: Hashable, Sendable {
         case .TableSep: .tableSep
         case .TableEnd: .tableEnd
         case .Comment: .comment
+        case .Comma: .comma
         }
     }
 
@@ -104,9 +109,9 @@ enum Token: Hashable, Sendable {
         case .DoubleNumber(let val): val
         case .Boolean(let val): val
         case .DateTime(let val): val
-        case .LocalDate(let val): val
-        case .LocalTime(let val): val
-        case .LocalDateTime(let val): val
+        case .LocalDate(let val): TomlDate(kind: .localDate, text: val)
+        case .LocalTime(let val): TomlDate(kind: .localTime, text: val)
+        case .LocalDateTime(let val): TomlDate(kind: .localDateTime, text: val)
         case .Comment(let val): val
         default: nil
         }

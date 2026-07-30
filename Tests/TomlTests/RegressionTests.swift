@@ -165,7 +165,7 @@ struct TokenRegressionTests {
         // correctness depend on hashing rather than on the case itself.
         #expect(Token.Identifier("a") == Token.Identifier("b"))
         #expect(Token.IntegerNumber(1) == Token.IntegerNumber(2))
-        #expect(Token.Identifier("a") != Token.Key("a"))
+        #expect(Token.Identifier("a") != Token.Key(["a"]))
         #expect(Token.TableBegin != Token.TableEnd)
     }
 }

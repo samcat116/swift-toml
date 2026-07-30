@@ -570,28 +570,37 @@ func testParseErrorExample4() throws {
     }
 }
 
-@Test("Invalid array mixed types arrays and ints")
-func testInvalidArrayMixedTypesArraysAndInts() throws {
+// Arrays of mixed type are valid TOML: the restriction to a single type was
+// dropped in 1.0. These files were previously expected to be rejected.
+
+@Test("Array mixing arrays and ints")
+func testArrayMixedTypesArraysAndInts() throws {
     setupWorkingDirectory()
-    #expect(throws: (any Error).self) {
-        try Toml(contentsOfFile: tomlFilePath("array-mixed-types-arrays-and-ints.toml"))
-    }
+    let actual = try Toml(contentsOfFile: tomlFilePath("array-mixed-types-arrays-and-ints.toml"))
+    let arr: [Any] = actual.array("arrays-and-ints")!
+    #expect(arr.count == 2)
+    #expect(arr[0] as? Int == 1)
+    #expect(arr[1] as? [String] == ["Arrays are not integers."])
 }
 
-@Test("Invalid array mixed types ints and floats")
-func testInvalidArrayMixedTypesIntsAndFloats() throws {
+@Test("Array mixing ints and floats")
+func testArrayMixedTypesIntsAndFloats() throws {
     setupWorkingDirectory()
-    #expect(throws: (any Error).self) {
-        try Toml(contentsOfFile: tomlFilePath("array-mixed-types-ints-and-floats.toml"))
-    }
+    let actual = try Toml(contentsOfFile: tomlFilePath("array-mixed-types-ints-and-floats.toml"))
+    let arr: [Any] = actual.array("ints-and-floats")!
+    #expect(arr.count == 2)
+    #expect(arr[0] as? Int == 1)
+    #expect(arr[1] as? Double == 1.1)
 }
 
-@Test("Invalid array mixed types strings and ints")
-func testInvalidArrayMixedTypesStringsAndInts() throws {
+@Test("Array mixing strings and ints")
+func testArrayMixedTypesStringsAndInts() throws {
     setupWorkingDirectory()
-    #expect(throws: (any Error).self) {
-        try Toml(contentsOfFile: tomlFilePath("array-mixed-types-strings-and-ints.toml"))
-    }
+    let actual = try Toml(contentsOfFile: tomlFilePath("array-mixed-types-strings-and-ints.toml"))
+    let arr: [Any] = actual.array("strings-and-ints")!
+    #expect(arr.count == 2)
+    #expect(arr[0] as? String == "hi")
+    #expect(arr[1] as? Int == 42)
 }
 
 @Test("Invalid datetime malformed no leads")
@@ -602,12 +611,15 @@ func testInvalidDatetimeMalformedNoLeads() throws {
     }
 }
 
-@Test("Invalid datetime malformed no secs")
-func testInvalidDatetimeMalformedNoSecs() throws {
+@Test("Datetimes without seconds (TOML 1.1.0)")
+func testDatetimeOptionalSeconds() throws {
     setupWorkingDirectory()
-    #expect(throws: (any Error).self) {
-        try Toml(contentsOfFile: tomlFilePath("datetime-malformed-no-secs.toml"))
-    }
+    let actual = try Toml(contentsOfFile: tomlFilePath("datetime-optional-secs.toml"))
+    #expect(actual.date("no-secs") == Date(rfc3339String: "1987-07-05T17:45:00Z")!)
+    #expect(actual.localDateTime("local-no-secs") == "1987-07-05T17:45")
+    #expect(actual.localTime("time-no-secs") == "17:45")
+    // A space in place of the `T` separator has always been legal TOML.
+    #expect(actual.date("spaced") == Date(rfc3339String: "1987-07-05T17:45:00Z")!)
 }
 
 @Test("Invalid datetime malformed no T")
@@ -762,12 +774,11 @@ func testInvalidStringBadEscape() throws {
     }
 }
 
-@Test("Invalid string byte escapes")
-func testInvalidStringByteEscapes() throws {
+@Test("String byte escapes (TOML 1.1.0)")
+func testStringByteEscapes() throws {
     setupWorkingDirectory()
-    #expect(throws: (any Error).self) {
-        try Toml(contentsOfFile: tomlFilePath("string-byte-escapes.toml"))
-    }
+    let actual = try Toml(contentsOfFile: tomlFilePath("string-byte-escapes.toml"))
+    #expect(actual.string("answer") == "3")
 }
 
 @Test("Invalid string no close")
@@ -1010,29 +1021,26 @@ func testLocalDateTime() throws {
     #expect(actual.localDateTime("ldt1") == "1979-05-27T07:32:00")
     #expect(actual.localDateTime("ldt2") == "1979-05-27T00:32:00.999999")
     
-    // Test arrays with local date/time values
-    if let dates: [String] = actual.array("dates") {
-        #expect(dates.count == 3)
-        #expect(dates[0] == "1979-05-27")
-        #expect(dates[1] == "1980-01-01")
-        #expect(dates[2] == "2023-12-31")
+    // Test arrays with local date/time values. These are `TomlDate` rather
+    // than `String`: a local date is its own type, so that it round-trips
+    // back out as a date rather than as a quoted string.
+    if let dates: [TomlDate] = actual.array("dates") {
+        #expect(dates.map(\.text) == ["1979-05-27", "1980-01-01", "2023-12-31"])
+        #expect(dates.allSatisfy { $0.kind == .localDate })
     } else {
         #expect(Bool(false), "Failed to get dates array")
     }
-    
-    if let times: [String] = actual.array("times") {
-        #expect(times.count == 3)
-        #expect(times[0] == "07:32:00")
-        #expect(times[1] == "12:00:00")
-        #expect(times[2] == "23:59:59")
+
+    if let times: [TomlDate] = actual.array("times") {
+        #expect(times.map(\.text) == ["07:32:00", "12:00:00", "23:59:59"])
+        #expect(times.allSatisfy { $0.kind == .localTime })
     } else {
         #expect(Bool(false), "Failed to get times array")
     }
-    
-    if let datetimes: [String] = actual.array("datetimes") {
-        #expect(datetimes.count == 2)
-        #expect(datetimes[0] == "1979-05-27T07:32:00")
-        #expect(datetimes[1] == "1980-01-01T12:00:00")
+
+    if let datetimes: [TomlDate] = actual.array("datetimes") {
+        #expect(datetimes.map(\.text) == ["1979-05-27T07:32:00", "1980-01-01T12:00:00"])
+        #expect(datetimes.allSatisfy { $0.kind == .localDateTime })
     } else {
         #expect(Bool(false), "Failed to get datetimes array")
     }

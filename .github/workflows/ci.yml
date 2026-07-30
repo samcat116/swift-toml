@@ -64,3 +64,28 @@ jobs:
 
       - name: Build release
         run: swift build -c release
+
+  conformance:
+    # The unit tests check what this library does with the documents we
+    # thought to write; toml-test checks it against every document the
+    # specification has an opinion about, valid and invalid alike.
+    name: toml-test (TOML ${{ matrix.toml }})
+    runs-on: ubuntu-latest
+    container: swift:6.3-noble
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.1.0 is the version this library targets. The 1.0.0 run skips the
+        # nine documents 1.1.0 made legal, and otherwise has to pass too.
+        toml: ["1.1.0", "1.0.0"]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # toml-test is written in Go; the suite itself is compiled into it.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Run the conformance suite
+        run: ./Scripts/toml-test.sh ${{ matrix.toml }}
